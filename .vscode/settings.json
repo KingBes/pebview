@@ -1,0 +1,27 @@
+{
+    "files.associations": {
+        "xstring": "cpp",
+        "xmemory": "cpp",
+        "array": "c",
+        "atomic": "c",
+        "compare": "c",
+        "cstddef": "c",
+        "functional": "c",
+        "future": "c",
+        "iterator": "c",
+        "limits": "c",
+        "memory": "c",
+        "mutex": "c",
+        "system_error": "c",
+        "type_traits": "c",
+        "vector": "c",
+        "xhash": "c",
+        "xiosbase": "c",
+        "xlocale": "c",
+        "xlocbuf": "c",
+        "xlocmon": "c",
+        "xloctime": "c",
+        "xtree": "c",
+        "xutility": "c"
+    }
+}
