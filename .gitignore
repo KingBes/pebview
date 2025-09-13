@@ -2,3 +2,5 @@
 .vscode
 .env
 *.c
+vendor
+composer.lock
