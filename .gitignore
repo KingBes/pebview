@@ -1,6 +1,6 @@
 .git
 .vscode
 .env
-*.c
+*.o
 vendor
 composer.lock

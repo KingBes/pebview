@@ -24,7 +24,7 @@ abstract class Base
         if (!isset(self::$ffi)) {
             $headerPath = __DIR__ . '/PebView.h';
             // $dllPath = self::getLibFilePath();
-            $dllPath = dirname(__DIR__) . '\lib\PebView.dll'; 
+            $dllPath = dirname(__DIR__) . '\lib\windows\PebView.dll'; 
 
             $libHeader = file_get_contents($headerPath);
             self::$ffi = \FFI::cdef($libHeader, $dllPath);
