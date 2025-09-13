@@ -1,0 +1,15 @@
+{
+    "name": "kingbes/pebview",
+    "description": "pebview for php",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.2",
+        "ext-ffi": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kingbes\\PebView\\": "src/"
+        }
+    }
+}
