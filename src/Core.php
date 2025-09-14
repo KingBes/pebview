@@ -22,6 +22,13 @@ class Core extends Base
         return $this;
     }
 
+    public function setIcon(string $iconFilePath): self
+    {
+        $ptr = self::ffi()->webview_get_window($this->pv);
+        self::ffi()->set_icon($ptr, $iconFilePath);
+        return $this;
+    }
+
     public function run(): self
     {
         self::ffi()->webview_run($this->pv);

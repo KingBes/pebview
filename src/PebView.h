@@ -19,5 +19,8 @@ webview_error_t webview_bind(webview_t w, const char *name, void (*fn)(const cha
 webview_error_t webview_unbind(webview_t w, const char *name);
 webview_error_t webview_return(webview_t w, const char *id, int status, const char *result);
 
+// icon
+int set_icon(const void* ptr, const char* iconFilePath);
+
 // dialog
-// int osdialog_message(int level, int buttons, const char* message);
+int osdialog_message(int level, int buttons, const char* message);

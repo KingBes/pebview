@@ -14,5 +14,10 @@ enum SetIconErrorCode {
 	ICON_NOT_FOUND,
 	OS_UNSUPPORTED,
 };
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 enum SetIconErrorCode set_icon(const void* ptr, const char* iconFilePath);
+#ifdef __cplusplus
+}
+#endif
