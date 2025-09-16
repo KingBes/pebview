@@ -6,6 +6,10 @@
 extern osdialog_save_callback* osdialog_save_cb;
 extern osdialog_restore_callback* osdialog_restore_cb;
 
+// 添加全局变量定义
+osdialog_save_callback* osdialog_save_cb = NULL;
+osdialog_restore_callback* osdialog_restore_cb = NULL;
+
 #define SAVE_CALLBACK \
 	void* context = NULL; \
 	if (osdialog_save_cb) { \
