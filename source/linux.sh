@@ -64,7 +64,9 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "编译 webview.cc..."
-g++ -DWEBVIEW_GTK -std=c++11 -Wall -Wextra -pedantic -I"$webview_i" -c "$current_dir/webview/webview.cc" -o "$webview_o" $gtk_cflags -fPIC
+c++ -DWEBVIEW_STATIC -std=c++11 -fvisibility=default -fvisibility-inlines-hidden \
+    -Wall -Wextra -pedantic -I"$webview_i" \
+    -c "$current_dir/webview/webview.cc" -o "$webview_o" $gtk_cflags -fPIC
 if [ $? -ne 0 ]; then
     echo "编译 webview.cc 失败!"
     exit 1
@@ -85,48 +87,8 @@ echo "链接共享库..."
 # 尝试多种链接选项
 link_success=0
 
-# 选项1: 基本链接
-echo "尝试选项1: 基本链接..."
-g++ -v -shared -o "$dll_file" "$icon_o" "$dialog_o" "$webview_o" $gtk_libs -ldl
-if [ $? -eq 0 ]; then
-    link_success=1
-    echo "选项1 链接成功!"
-else
-    echo "选项1 链接失败，尝试选项2..."
-    
-    # 选项2: 添加 C++ 标准库
-    echo "尝试选项2: 添加 C++ 标准库..."
-    g++ -v -shared -o "$dll_file" "$icon_o" "$dialog_o" "$webview_o" $gtk_libs -lstdc++ -ldl
-    if [ $? -eq 0 ]; then
-        link_success=1
-        echo "选项2 链接成功!"
-    else
-        echo "选项2 链接失败，尝试选项3..."
-        
-        # 选项3: 使用 gcc 链接并添加所有必要库
-        echo "尝试选项3: 使用 gcc 链接..."
-        gcc -v -shared -o "$dll_file" "$icon_o" "$dialog_o" "$webview_o" $gtk_libs -lstdc++ -ldl -lpthread
-        if [ $? -eq 0 ]; then
-            link_success=1
-            echo "选项3 链接成功!"
-        else
-            echo "选项3 链接失败..."
-        fi
-    fi
-fi
-
-# 如果所有尝试都失败，尝试最小链接
-if [ $link_success -ne 1 ]; then
-    echo "所有链接尝试都失败，尝试最小链接..."
-    g++ -v -shared -o "$dll_file" "$webview_o" $gtk_libs -ldl
-    if [ $? -eq 0 ]; then
-        link_success=1
-        echo "最小链接成功!"
-    else
-        echo "最小链接失败!"
-        exit 1
-    fi
-fi
+echo "基本链接..."
+g++ -shared -o "$dll_file" "$webview_o" "$icon_o" "$dialog_o" $gtk_libs -ldl -lstdc++
 
 # 检查最终库文件大小
 echo "生成的共享库信息:"
@@ -138,12 +100,8 @@ du -h "$dll_file"
 echo "验证共享库类型:"
 file "$dll_file"
 
-# 检查共享库依赖
-echo "检查共享库依赖:"
-ldd "$dll_file"
-
 # 检查共享库中的符号
 echo "检查共享库中的关键符号..."
-nm -gC "$dll_file" | grep -E 'icon|osdialog|webview' | head -n 20
+nm -gC "$dll_file" | grep -E 'icon|osdialog|webview' 
 
 echo "构建过程完成!"
