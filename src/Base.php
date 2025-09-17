@@ -46,7 +46,6 @@ abstract class Base
         if (PHP_OS_FAMILY === 'Windows') {
             // 返回 Windows 系统下的 PebView 动态链接库文件路径
             return dirname(__DIR__) . DIRECTORY_SEPARATOR
-                . 'build' . DIRECTORY_SEPARATOR 
                 . 'lib' . DIRECTORY_SEPARATOR 
                 . 'windows' . DIRECTORY_SEPARATOR 
                 . 'PebView.dll';
@@ -65,7 +64,6 @@ abstract class Base
             }
             // 返回 Linux 系统下的 PebView 共享库文件路径
             return dirname(__DIR__) . DIRECTORY_SEPARATOR
-                . 'build' . DIRECTORY_SEPARATOR 
                 . 'lib' . DIRECTORY_SEPARATOR 
                 . 'linux' . DIRECTORY_SEPARATOR 
                 . $arch . DIRECTORY_SEPARATOR 
@@ -85,7 +83,6 @@ abstract class Base
             }
             // 返回 macOS 系统下的 PebView 共享库文件路径
             return dirname(__DIR__) . DIRECTORY_SEPARATOR
-                . 'build' . DIRECTORY_SEPARATOR 
                 . 'lib' . DIRECTORY_SEPARATOR 
                 . 'macos' . DIRECTORY_SEPARATOR 
                 . $arch . DIRECTORY_SEPARATOR 
