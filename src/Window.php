@@ -13,11 +13,13 @@ class Window extends Base
      * 创建窗口
      *
      * @param boolean $debug 是否开启调试模式
+     * @param CData|null $window 窗口指针
+     * 
      * @return CData 窗口指针
      */
-    public static function create(bool $debug): CData
+    public static function create(bool $debug, CData|null $window = null): CData
     {
-        return self::ffi()->webview_create($debug, null);
+        return self::ffi()->webview_create($debug, $window);
     }
 
     /**
