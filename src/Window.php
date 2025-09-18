@@ -78,7 +78,7 @@ class Window extends Base
     public static function setIcon(CData $pv, string $icon): void
     {
         $ptr = self::ffi()->webview_get_window($pv);
-        self::ffi()->webview_set_icon($ptr, $icon);
+        self::ffi()->set_icon($ptr, $icon);
     }
 
     /**
