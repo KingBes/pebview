@@ -11,13 +11,13 @@ arch=$(uname -m)
 if [ "$arch" = "x86_64" ]; then
     # Intel 64位架构
     dylib_file="$current_dir/../lib/macos/x86_64/PebView.dylib"
-    echo "检测到 Intel 64位架构，目标文件: $dylib_file"
+    echo "检测到 Intel 64位架构,目标文件: $dylib_file"
     # 为Intel架构设置额外标志
     extra_flags="-arch x86_64"
 elif [ "$arch" = "arm64" ]; then
     # Apple Silicon 架构
     dylib_file="$current_dir/../lib/macos/arm64/PebView.dylib"
-    echo "检测到 Apple Silicon 架构，目标文件: $dylib_file"
+    echo "检测到 Apple Silicon 架构,目标文件: $dylib_file"
     # 为ARM架构设置额外标志
     extra_flags="-arch arm64"
 else
