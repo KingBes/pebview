@@ -72,7 +72,7 @@ fi
 
 # 链接生成动态库（添加必要的框架）
 echo "链接动态库..."
-c++ $extra_flags -dynamiclib -o "$dylib_file" "$webview_o" "$icon_o" "$dialog_o" $CXXSHARED
+c++ $extra_flags $CXXSHARED "$webview_o" "$icon_o" "$dialog_o" -o "$dylib_file"
 
 # 检查最终库文件
 echo "生成的动态库信息:"
