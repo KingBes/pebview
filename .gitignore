@@ -4,3 +4,4 @@
 *.o
 vendor
 composer.lock
+.codebuddy
