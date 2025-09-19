@@ -110,7 +110,7 @@ function main() {
     LDFLAGS="-ObjC"
     
     # macOS 框架
-    FRAMEWORKS="-framework WebKit -framework Cocoa -framework Carbon"
+    FRAMEWORKS="-framework WebKit -framework Cocoa -framework Carbon -DWEBVIEW_COCOA"
     
     # 定义对象文件和包含路径
     icon_o="$current_dir/seticon/icon.o"
@@ -135,7 +135,7 @@ function main() {
         exit 1
     fi
     
-    if ! build_library "clang++" "$extra_flags $CXXFLAGS" "$current_dir/webview/webview.cc" "$webview_o" "$webview_i"; then
+    if ! build_library "c++" "$extra_flags $CXXFLAGS" "$current_dir/webview/webview.cc" "$webview_o" "$webview_i"; then
         exit 1
     fi
     
@@ -154,6 +154,7 @@ function main() {
         ls -lh "$dylib_file"
         file "$dylib_file"
         log_info "构建过程完成!"
+        nm -g "$dylib_file"
         return 0
     else
         log_error "动态库文件未生成!"
