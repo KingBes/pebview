@@ -101,10 +101,13 @@ function main() {
     clean_build
     
     # 统一编译标志
-    COMMON_FLAGS="-Wall -Wextra -pedantic -O3 -fPIC"
+    COMMON_FLAGS="-Wall -Wextra -pedantic -O3 -mmacosx-version-min=10.10"
     CFLAGS="$COMMON_FLAGS -std=c99"
     CXXFLAGS="$COMMON_FLAGS -DWEBVIEW_COCOA -std=c++11"
     OBJCFLAGS="$COMMON_FLAGS -DWEBVIEW_COCOA"
+    
+    # 链接标志
+    LDFLAGS="-ObjC"
     
     # macOS 框架
     FRAMEWORKS="-framework WebKit -framework Cocoa -framework Carbon"
@@ -133,7 +136,7 @@ function main() {
     
     # 链接生成动态库
     log_info "链接动态库..."
-    clang++ $extra_flags $CXXFLAGS -shared -o "$dylib_file" "$webview_o" "$icon_o" "$dialog_o" $FRAMEWORKS
+    clang++ $extra_flags -dynamiclib $LDFLAGS -install_name "@rpath/$(basename "$dylib_file")" -o "$dylib_file" "$webview_o" "$icon_o" "$dialog_o" $FRAMEWORKS
     
     if [ $? -ne 0 ]; then
         log_error "链接动态库失败!"
