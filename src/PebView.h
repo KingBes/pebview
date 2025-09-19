@@ -20,18 +20,20 @@ webview_error_t webview_unbind(webview_t w, const char *name);
 webview_error_t webview_return(webview_t w, const char *id, int status, const char *result);
 
 // icon
-int set_icon(const void* ptr, const char* iconFilePath);
+int set_icon(const void *ptr, const char *iconFilePath);
 
 // dialog
-int osdialog_message(int level, int buttons, const char* message);
-const char* osdialog_prompt(int level, const char* message, const char* text);
-typedef struct osdialog_filter_patterns {
-	char* pattern;
-	struct osdialog_filter_patterns* next;
+int osdialog_message(int level, int buttons, const char *message);
+const char *osdialog_prompt(int level, const char *message, const char *text);
+typedef struct osdialog_filter_patterns
+{
+	char *pattern;
+	struct osdialog_filter_patterns *next;
 } osdialog_filter_patterns;
-typedef struct osdialog_filters {
-	char* name;
-	osdialog_filter_patterns* patterns;
-	struct osdialog_filters* next;
+typedef struct osdialog_filters
+{
+	char *name;
+	osdialog_filter_patterns *patterns;
+	struct osdialog_filters *next;
 } osdialog_filters;
-const char* osdialog_file(int action, const char* dir, const char* filename, const osdialog_filters* filters);
+const char *osdialog_file(int action, const char *dir, const char *filename, const osdialog_filters *filters);
