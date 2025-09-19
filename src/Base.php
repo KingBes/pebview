@@ -67,7 +67,7 @@ abstract class Base
                 . 'lib' . DIRECTORY_SEPARATOR 
                 . 'linux' . DIRECTORY_SEPARATOR 
                 . $arch . DIRECTORY_SEPARATOR 
-                . 'libPebView.so';
+                . 'PebView.so';
         } elseif (PHP_OS_FAMILY === 'Darwin') {
             // 判断架构是否为x86_64
             if (PHP_INT_SIZE === 8) {
@@ -86,7 +86,7 @@ abstract class Base
                 . 'lib' . DIRECTORY_SEPARATOR 
                 . 'macos' . DIRECTORY_SEPARATOR 
                 . $arch . DIRECTORY_SEPARATOR 
-                . 'libPebView.dylib';
+                . 'PebView.dylib';
         } else {
             // 若当前操作系统不被支持，抛出异常
             throw new \RuntimeException("Unsupported operating system: " . PHP_OS_FAMILY . ": " . PHP_OS . "");

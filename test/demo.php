@@ -7,6 +7,7 @@ use Kingbes\PebView\Dialog; // 引入 Dialog 类
 
 // 创建一个窗口
 $pv = Window::create(true);
+Window::setSize($pv, 800, 600); // 设置窗口大小
 Window::setIcon($pv, __DIR__ . "/php.ico"); // 设置窗口图标
 // 绑定一个事件
 Window::bind($pv, "demo", function (...$params) {
