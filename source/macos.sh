@@ -103,8 +103,11 @@ function main() {
     # 统一编译标志
     COMMON_FLAGS="-Wall -Wextra -pedantic -O3 -fPIC"
     CFLAGS="$COMMON_FLAGS -std=c99"
-    CXXFLAGS="$COMMON_FLAGS -DWEBVIEW_COCOA -std=c++11 -framework WebKit -framework Cocoa -framework Carbon"
-    OBJCFLAGS="$COMMON_FLAGS -DWEBVIEW_COCOA -framework WebKit -framework Cocoa -framework Carbon"
+    CXXFLAGS="$COMMON_FLAGS -DWEBVIEW_COCOA -std=c++11"
+    OBJCFLAGS="$COMMON_FLAGS -DWEBVIEW_COCOA"
+    
+    # macOS 框架
+    FRAMEWORKS="-framework WebKit -framework Cocoa -framework Carbon"
     
     # 定义对象文件和包含路径
     icon_o="$current_dir/seticon/icon.o"
@@ -130,7 +133,7 @@ function main() {
     
     # 链接生成动态库
     log_info "链接动态库..."
-    clang++ $extra_flags $CXXFLAGS -shared -o "$dylib_file" "$webview_o" "$icon_o" "$dialog_o"
+    clang++ $extra_flags $CXXFLAGS -shared -o "$dylib_file" "$webview_o" "$icon_o" "$dialog_o" $FRAMEWORKS
     
     if [ $? -ne 0 ]; then
         log_error "链接动态库失败!"
