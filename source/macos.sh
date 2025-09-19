@@ -1,5 +1,3 @@
-#! /usr/bin/env bash
-
 #!/bin/bash
 
 # 优化版 PebView macOS 构建脚本
@@ -20,7 +18,7 @@ function log_error() {
 
 function check_dependencies() {
     # 检查必要的编译工具
-    local tools=('gcc' 'c++' 'file' 'ls' 'mkdir' 'rm' 'find')
+    local tools=('gcc' 'clang++' 'file' 'ls' 'mkdir' 'rm' 'find')
     local missing=0
     
     for tool in "${tools[@]}"; do
@@ -36,7 +34,7 @@ function check_dependencies() {
 function clean_build() {
     # 清理构建环境
     log_info "清理构建环境..."
-    find "$current_dir" -type f -name "*.o" -exec rm -f {} +
+    find "$current_dir" -type f -name "*.o" -exec rm -f {} \;
     if [ -f "$dylib_file" ]; then
         log_info "删除现有库文件: $dylib_file"
         rm -f "$dylib_file"
@@ -65,7 +63,7 @@ function build_library() {
 # 主函数
 function main() {
     # 获取当前执行文件的目录（macOS兼容方式）
-    current_dir="$(cd "$(dirname "$0")" && pwd)"
+    current_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     
     # 检查依赖工具
     if ! check_dependencies; then
@@ -105,34 +103,34 @@ function main() {
     # 统一编译标志
     COMMON_FLAGS="-Wall -Wextra -pedantic -O3 -fPIC"
     CFLAGS="$COMMON_FLAGS -std=c99"
-    CXXFLAGS="$COMMON_FLAGS -DWEBVIEW_COCOA -std=c++11 -framework WebKit"
-    OBJCFLAGS="$COMMON_FLAGS -DWEBVIEW_COCOA -framework WebKit"
+    CXXFLAGS="$COMMON_FLAGS -DWEBVIEW_COCOA -std=c++11 -framework WebKit -framework Cocoa -framework Carbon"
+    OBJCFLAGS="$COMMON_FLAGS -DWEBVIEW_COCOA -framework WebKit -framework Cocoa -framework Carbon"
     
     # 定义对象文件和包含路径
     icon_o="$current_dir/seticon/icon.o"
-dialog_o="$current_dir/dialog/osdialog_mac.o"
-webview_o="$current_dir/webview/webview.o"
+    dialog_o="$current_dir/dialog/osdialog_mac.o"
+    webview_o="$current_dir/webview/webview.o"
     
     icon_i="-I$current_dir/seticon"
-dialog_i="-I$current_dir/dialog"
-webview_i="-I$current_dir/webview"
+    dialog_i="-I$current_dir/dialog"
+    webview_i="-I$current_dir/webview"
     
     # 编译源文件
     if ! build_library "gcc" "$extra_flags $CFLAGS" "$current_dir/seticon/icon.c" "$icon_o" "$icon_i"; then
         exit 1
     fi
     
-    if ! build_library "cc" "$extra_flags $OBJCFLAGS" "$current_dir/dialog/osdialog_mac.m" "$dialog_o" "$dialog_i"; then
+    if ! build_library "clang" "$extra_flags $OBJCFLAGS" "$current_dir/dialog/osdialog_mac.m" "$dialog_o" "$dialog_i"; then
         exit 1
     fi
     
-    if ! build_library "c++" "$extra_flags $CXXFLAGS" "$current_dir/webview/webview.cc" "$webview_o" "$webview_i"; then
+    if ! build_library "clang++" "$extra_flags $CXXFLAGS" "$current_dir/webview/webview.cc" "$webview_o" "$webview_i"; then
         exit 1
     fi
     
     # 链接生成动态库
     log_info "链接动态库..."
-c++ $extra_flags $CXXFLAGS -shared "$webview_o" "$icon_o" "$dialog_o" -o "$dylib_file"
+    clang++ $extra_flags $CXXFLAGS -shared -o "$dylib_file" "$webview_o" "$icon_o" "$dialog_o"
     
     if [ $? -ne 0 ]; then
         log_error "链接动态库失败!"
