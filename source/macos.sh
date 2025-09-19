@@ -103,14 +103,14 @@ function main() {
     # 统一编译标志
     COMMON_FLAGS="-Wall -Wextra -pedantic -O3 -mmacosx-version-min=10.10"
     CFLAGS="$COMMON_FLAGS -std=c99"
-    CXXFLAGS="$COMMON_FLAGS -DWEBVIEW_COCOA -std=c++11"
+    CXXFLAGS="$COMMON_FLAGS -DWEBVIEW_STATIC -std=c++11"
     OBJCFLAGS="$COMMON_FLAGS -DWEBVIEW_COCOA"
     
     # 链接标志
     LDFLAGS="-ObjC"
     
     # macOS 框架
-    FRAMEWORKS="-framework WebKit -framework Cocoa -framework Carbon -DWEBVIEW_COCOA"
+    FRAMEWORKS="-framework WebKit -framework Cocoa -framework Carbon"
     
     # 定义对象文件和包含路径
     icon_o="$current_dir/seticon/icon.o"
