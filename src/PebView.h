@@ -37,3 +37,8 @@ typedef struct osdialog_filters
 	struct osdialog_filters *next;
 } osdialog_filters;
 const char *osdialog_file(int action, const char *dir, const char *filename, const osdialog_filters *filters);
+
+// other
+void other_get_screen_size(int *width, int *height);
+void *other_create_window(int x, int y, int width, int height);
+int other_window_minimize(const void *window);

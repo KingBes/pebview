@@ -19,7 +19,8 @@ class Window extends Base
      */
     public static function create(bool $debug, CData|null $window = null): CData
     {
-        return self::ffi()->webview_create($debug, $window);
+        $win = self::ffi()->webview_create($debug, $window);
+        return $win;
     }
 
     /**
@@ -196,5 +197,24 @@ class Window extends Base
     public static function unBind(CData $pv, string $name): void
     {
         self::ffi()->webview_unbind($pv, $name);
+    }
+
+    /**
+     * 获取屏幕大小
+     *
+     * @return array
+     */
+    public static function getScreenSize(): array
+    {
+        $width = self::ffi()->new('int[1]');
+        $height = self::ffi()->new('int[1]');
+        self::ffi()->other_get_screen_size($width, $height);
+        return ['width' => $width[0], 'height' => $height[0]];
+    }
+
+    public static function minimize(CData $pv): void
+    {
+        $ptr = self::ffi()->webview_get_window($pv);
+        self::ffi()->other_window_minimize($ptr);
     }
 }
