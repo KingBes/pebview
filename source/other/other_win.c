@@ -4,12 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-// 设置窗口样式
-void other_set_window_style(const void *window, int style)
-{
-    SetWindowLongPtr((HWND)window, GWL_STYLE, style);
-}
-
 // 窗口显示
 int other_window_show(const void *window)
 {

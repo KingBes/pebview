@@ -5,9 +5,6 @@ extern "C"
 {
 #endif
 
-    // 设置窗口样式
-    void other_set_window_style(const void *window, int style);
-
     // 窗口显示
     int other_window_show(const void *window);
 

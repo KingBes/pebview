@@ -171,7 +171,7 @@ class Window extends Base
     {
         $c_callable = function (string $id, string $req, mixed $arg) use ($callable, $pv) {
             $params = json_decode($req, true);
-            $value = $callable(...$params);
+            $value = $callable($pv, ...$params);
             if ($value) {
                 if ((is_object($value) || is_array($value))) {
                     self::ffi()->webview_return($pv, $id, 0, json_encode($value, 320));
@@ -197,24 +197,5 @@ class Window extends Base
     public static function unBind(CData $pv, string $name): void
     {
         self::ffi()->webview_unbind($pv, $name);
-    }
-
-    /**
-     * 获取屏幕大小
-     *
-     * @return array
-     */
-    public static function getScreenSize(): array
-    {
-        $width = self::ffi()->new('int[1]');
-        $height = self::ffi()->new('int[1]');
-        self::ffi()->other_get_screen_size($width, $height);
-        return ['width' => $width[0], 'height' => $height[0]];
-    }
-
-    public static function minimize(CData $pv): void
-    {
-        $ptr = self::ffi()->webview_get_window($pv);
-        self::ffi()->other_window_minimize($ptr);
     }
 }

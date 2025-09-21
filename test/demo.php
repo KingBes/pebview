@@ -6,15 +6,14 @@ use Kingbes\PebView\Window; // 引入 Window 类
 use Kingbes\PebView\Dialog; // 引入 Dialog 类
 
 // 创建一个窗口
-// $newWin = Window::createWindow(0, 0, 800, 600);
 $pv = Window::create(true);
 Window::setSize($pv, 800, 600); // 设置窗口大小
 Window::setIcon($pv, __DIR__ . "/php.ico"); // 设置窗口图标
+Window::setTitle($pv, "PebView"); // 设置窗口标题
 // 绑定一个事件
-Window::bind($pv, "demo", function (...$params) use ($pv) {
+Window::bind($pv, "demo", function ($pv, ...$params) {
     // 这里可以写你要执行的代码
-    // Dialog::msg("Hello PebView!"); // 弹出一个消息框
-    Window::minimize($pv);
+    Dialog::msg("Hello PebView!"); // 弹出一个消息框
 });
 
 // 设置窗口的 HTML 内容

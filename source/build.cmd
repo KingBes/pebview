@@ -10,7 +10,7 @@ gcc -c %current_dir%seticon\icon.c -o %current_dir%seticon\icon.o -I%current_dir
 gcc -c %current_dir%webview\webview.cc -o %current_dir%webview\webview.o -DWEBVIEW_STATIC -std=c++14  -I%current_dir%webview
 gcc -c %current_dir%dialog\osdialog.c -o %current_dir%dialog\osdialog.o -I%current_dir%dialog
 gcc -c %current_dir%dialog\osdialog_win.c -o %current_dir%dialog\osdialog_win.o -I%current_dir%dialog
-gcc -c %current_dir%other\other_win.c -o %current_dir%other\other_win.o -I%current_dir%other
+@REM gcc -c %current_dir%other\other_win.c -o %current_dir%other\other_win.o -I%current_dir%other
 
 
-g++ -shared -o %current_dir%..\lib\windows\PebView.dll %current_dir%seticon\icon.o %current_dir%webview\webview.o %current_dir%dialog\osdialog.o %current_dir%dialog\osdialog_win.o %current_dir%other\other_win.o -DWEBVIEW_EDGE -static -ladvapi32 -lole32 -lshell32 -lshlwapi -luser32 -lversion -lstdc++ -lcomdlg32 -I%current_dir%webview -I%current_dir%dialog -I%current_dir%seticon
+g++ -shared -o %current_dir%..\lib\windows\PebView.dll %current_dir%seticon\icon.o %current_dir%webview\webview.o %current_dir%dialog\osdialog.o %current_dir%dialog\osdialog_win.o -DWEBVIEW_EDGE -static -ladvapi32 -lole32 -lshell32 -lshlwapi -luser32 -lversion -lstdc++ -lcomdlg32 -I%current_dir%webview -I%current_dir%dialog -I%current_dir%seticon
