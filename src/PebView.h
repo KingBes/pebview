@@ -38,16 +38,23 @@ typedef struct osdialog_filters
 } osdialog_filters;
 const char *osdialog_file(int action, const char *dir, const char *filename, const osdialog_filters *filters);
 
-/* // other
-// 窗口显示
-int other_window_show(const void *window);
-// 窗口隐藏
-int other_window_hide(const void *window);
-// 恢复原窗口大小
-void other_window_restore_size(const void *window);
-// 窗口最小化
-int other_window_minimize(const void *window);
-// 窗口最大化
-int other_window_maximize(const void *window);
-// 窗口关闭
-int other_window_close(const void *window); */
+
+// tray
+struct tray_menu {
+  char *text;
+  int disabled;
+  int checked;
+
+  void (*cb)(struct tray_menu *);
+  void *context;
+
+  struct tray_menu *submenu;
+};
+
+struct tray {
+  char *icon;
+  struct tray_menu *menu;
+};
+
+bool tray_create(struct tray *tray);
+bool tray_loops(int block);
