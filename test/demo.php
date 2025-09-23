@@ -22,8 +22,8 @@ Window::setHtml(
     <<<HTML
     <h1>hello</h1><button onClick="onBtn()">click</button>
     <script>
-    function onBtn() {
-    demo();
+    async function onBtn() {
+        await demo();
     }
     </script>
 HTML
