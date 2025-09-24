@@ -37,24 +37,3 @@ typedef struct osdialog_filters
 	struct osdialog_filters *next;
 } osdialog_filters;
 const char *osdialog_file(int action, const char *dir, const char *filename, const osdialog_filters *filters);
-
-
-// tray
-struct tray_menu {
-  char *text;
-  int disabled;
-  int checked;
-
-  void (*cb)(struct tray_menu *);
-  void *context;
-
-  struct tray_menu *submenu;
-};
-
-struct tray {
-  char *icon;
-  struct tray_menu *menu;
-};
-
-bool tray_create(struct tray *tray);
-bool tray_loops(int block);

@@ -198,4 +198,20 @@ class Window extends Base
     {
         self::ffi()->webview_unbind($pv, $name);
     }
+
+    
+    /**
+     * 重设窗口关闭事件
+     *
+     * @param CData $pv 窗口指针
+     * @param callable $callable 关闭事件回调
+     * @return void
+     */
+    public static function close(CData $pv, callable $callable): void
+    {
+        $c_callable = function (CData $pv) use ($callable) {
+            return $callable($pv);
+        };
+        self::ffi()->window_close(self::ffi()->webview_get_window($pv), $c_callable);
+    }
 }
