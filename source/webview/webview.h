@@ -417,6 +417,8 @@ WEBVIEW_API webview_error_t webview_return(webview_t w, const char *id,
  */
 WEBVIEW_API const webview_version_info_t *webview_version(void);
 
+WEBVIEW_API webview_error_t webview_set_close_callback(webview_t w, int (*fn)(void*));
+
 #ifdef __cplusplus
 }
 
@@ -1323,7 +1325,13 @@ window.__webview__.onUnbind(" +
 
   noresult eval(const std::string &js) { return eval_impl(js); }
 
+  noresult set_close_callback(std::function<int()> fn) {
+    m_close_callback = fn;
+    return {};
+  }
+
 protected:
+  std::function<int()> m_close_callback;
   virtual noresult navigate_impl(const std::string &url) = 0;
   virtual result<void *> window_impl() = 0;
   virtual result<void *> widget_impl() = 0;
@@ -1857,13 +1865,24 @@ public:
       }
       m_window = gtk_compat::window_new();
       on_window_created();
+      
+      // 添加关闭事件处理
+      auto on_window_close = +[](GtkWidget *, GdkEvent *, gpointer arg) -> gboolean {
+        auto *w = static_cast<gtk_webkit_engine *>(arg);
+        if (w->m_close_callback) {
+          return w->m_close_callback() ? FALSE : TRUE;
+        }
+        return FALSE;
+      };
+      g_signal_connect(G_OBJECT(m_window), "delete-event", G_CALLBACK(on_window_close), this);
+      
       auto on_window_destroy = +[](GtkWidget *, gpointer arg) {
         auto *w = static_cast<gtk_webkit_engine *>(arg);
         w->m_window = nullptr;
         w->on_window_destroyed();
       };
       g_signal_connect(G_OBJECT(m_window), "destroy",
-                       G_CALLBACK(on_window_destroy), this);
+                      G_CALLBACK(on_window_destroy), this);
     }
     webkit_dmabuf::apply_webkit_dmabuf_workaround();
     // Initialize webview widget
@@ -2433,6 +2452,35 @@ protected:
   }
 
 private:
+  // 添加窗口委托类
+  static id create_window_delegate() {
+    objc::autoreleasepool arp;
+    constexpr auto class_name = "WebviewNSWindowDelegate";
+    // 避免因注册相同类名而崩溃
+    auto cls = objc_lookUpClass(class_name);
+    if (!cls) {
+      cls = objc_allocateClassPair((Class) "NSObject"_cls, class_name, 0);
+      class_addProtocol(cls, objc_getProtocol("NSWindowDelegate"));
+      class_addMethod(cls, "windowShouldClose:"_sel,
+                      (IMP)(+[](id self, SEL, id) -> BOOL {
+                        auto w = get_associated_webview(self);
+                        if (w && w->m_close_callback) {
+                          return w->m_close_callback() ? YES : NO;
+                        }
+                        return YES;
+                      }),
+                      "c@:@");
+      class_addMethod(cls, "windowWillClose:"_sel,
+                      (IMP)(+[](id self, SEL, id notification) {
+                        auto window = objc::msg_send<id>(notification, "object"_sel);
+                        auto w = get_associated_webview(self);
+                        w->on_window_will_close(self, window);
+                      }),
+                      "v@:@");
+      objc_registerClassPair(cls);
+    }
+    return objc::msg_send<id>((id)cls, "new"_sel);
+  }
   id create_app_delegate() {
     objc::autoreleasepool arp;
     constexpr auto class_name = "WebviewAppDelegate";
@@ -2761,6 +2809,16 @@ private:
   id m_manager{};
   bool m_owns_window{};
 };
+
+// 在析构函数中释放窗口委托
+cocoa_wkwebview_engine::~cocoa_wkwebview_engine() {
+  objc::autoreleasepool arp;
+  if (m_window_delegate) {
+    objc::msg_send<void>(m_window, "setDelegate:"_sel, nullptr);
+    objc::msg_send<void>(m_window_delegate, "release"_sel);
+    m_window_delegate = nullptr;
+  }
+}
 
 } // namespace detail
 
@@ -3831,7 +3889,13 @@ public:
           w->resize_widget();
           break;
         case WM_CLOSE:
-          DestroyWindow(hwnd);
+          if (w->m_close_callback) {
+            if (w->m_close_callback()) {
+              DestroyWindow(hwnd);
+            }
+          } else {
+            DestroyWindow(hwnd);
+          }
           break;
         case WM_DESTROY:
           w->m_window = nullptr;
@@ -4550,6 +4614,18 @@ WEBVIEW_API webview_error_t webview_return(webview_t w, const char *id,
 
 WEBVIEW_API const webview_version_info_t *webview_version(void) {
   return &webview::detail::library_version_info;
+}
+
+WEBVIEW_API webview_error_t webview_set_close_callback(webview_t w, int (*fn)(void*)) {
+  using namespace webview::detail;
+  if (!fn) {
+    return WEBVIEW_ERROR_INVALID_ARGUMENT;
+  }
+  return api_filter([=] {
+    return cast_to_webview(w)->set_close_callback([=] {
+      return fn(nullptr);
+    });
+  });
 }
 
 #endif /* WEBVIEW_HEADER */

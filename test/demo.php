@@ -10,6 +10,13 @@ $pv = Window::create(true);
 Window::setSize($pv, 800, 600); // 设置窗口大小
 Window::setIcon($pv, __DIR__ . "/php.ico"); // 设置窗口图标
 Window::setTitle($pv, "PebView"); // 设置窗口标题
+
+// 设置窗口关闭事件
+Window::setCloseCallback($pv, function ($pv) {
+    // Dialog::msg("关闭窗口");
+    var_dump("关闭窗口");
+    return true;
+});
 // 绑定一个事件
 Window::bind($pv, "demo", function ($pv, ...$params) {
     // 这里可以写你要执行的代码

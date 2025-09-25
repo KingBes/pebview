@@ -199,7 +199,7 @@ class Window extends Base
         self::ffi()->webview_unbind($pv, $name);
     }
 
-    
+
     /**
      * 重设窗口关闭事件
      *
@@ -213,5 +213,20 @@ class Window extends Base
             return $callable($pv);
         };
         self::ffi()->window_close(self::ffi()->webview_get_window($pv), $c_callable);
+    }
+
+    /**
+     * 设置窗口关闭事件
+     *
+     * @param CData $pv 窗口指针
+     * @param callable $callable<CData: bool> 关闭事件回调 返回 true 关闭，false 不关闭
+     * @return void
+     */
+    public static function setCloseCallback(CData $pv, callable $callable): void
+    {
+        $c_callable = function () use ($callable, $pv) {
+            return $callable($pv) ?? 0;
+        };
+        self::ffi()->webview_set_close_callback($pv, $c_callable);
     }
 }
