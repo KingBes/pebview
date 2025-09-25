@@ -18,7 +18,7 @@ webview_error_t webview_eval(webview_t w, const char *js);
 webview_error_t webview_bind(webview_t w, const char *name, void (*fn)(const char *id, const char *req, void *arg), void *arg);
 webview_error_t webview_unbind(webview_t w, const char *name);
 webview_error_t webview_return(webview_t w, const char *id, int status, const char *result);
-webview_error_t webview_set_close_callback(webview_t w, int (*fn)(void*));
+webview_error_t webview_set_close_callback(webview_t w, int (*fn)(void *));
 // icon
 int set_icon(const void *ptr, const char *iconFilePath);
 
@@ -37,3 +37,23 @@ typedef struct osdialog_filters
 	struct osdialog_filters *next;
 } osdialog_filters;
 const char *osdialog_file(int action, const char *dir, const char *filename, const osdialog_filters *filters);
+
+// window
+struct tray_menu
+{
+	char *text;
+	int disabled;
+	int checked;
+	void (*callback)(const void *ptr);
+};
+
+struct tray
+{
+	const char *tip;
+	const char *icon_path;
+	struct tray_menu *menu;
+};
+int window_show(const void *ptr);
+int window_hide(const void *ptr);
+int window_create_tray(const void *ptr, const struct tray *tray);
+int window_destroy_tray(const void *ptr);

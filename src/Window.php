@@ -3,6 +3,7 @@
 namespace Kingbes\PebView;
 
 use \FFI\CData;
+use function Kingbes\PebView\trayMenuList;
 
 /**
  * Window 窗口类
@@ -31,6 +32,7 @@ class Window extends Base
      */
     public static function destroy(CData $pv): void
     {
+        self::destroyTray($pv);
         self::ffi()->webview_destroy($pv);
     }
 
@@ -199,22 +201,6 @@ class Window extends Base
         self::ffi()->webview_unbind($pv, $name);
     }
 
-
-    /**
-     * 重设窗口关闭事件
-     *
-     * @param CData $pv 窗口指针
-     * @param callable $callable 关闭事件回调
-     * @return void
-     */
-    public static function close(CData $pv, callable $callable): void
-    {
-        $c_callable = function (CData $pv) use ($callable) {
-            return $callable($pv);
-        };
-        self::ffi()->window_close(self::ffi()->webview_get_window($pv), $c_callable);
-    }
-
     /**
      * 设置窗口关闭事件
      *
@@ -225,8 +211,70 @@ class Window extends Base
     public static function setCloseCallback(CData $pv, callable $callable): void
     {
         $c_callable = function () use ($callable, $pv) {
-            return $callable($pv) ?? 0;
+            $cb =  $callable($pv);
+            if ($cb === true) {
+                self::destroyTray($pv);
+            }
+            return $cb ? 1 : 0;
         };
         self::ffi()->webview_set_close_callback($pv, $c_callable);
+    }
+
+    /**
+     * 窗口显示
+     *
+     * @param CData $pv 窗口指针
+     * @return void
+     */
+    public static function show(CData $pv): void
+    {
+        self::ffi()->window_show(self::ffi()->webview_get_window($pv));
+    }
+
+    /**
+     * 窗口隐藏
+     *
+     * @param CData $pv 窗口指针
+     * @return void
+     */
+    public static function hide(CData $pv): void
+    {
+        self::ffi()->window_hide(self::ffi()->webview_get_window($pv));
+    }
+
+    /**
+     * 创建系统托盘
+     *
+     * @param CData $pv 窗口指针
+     * @return void
+     */
+    public static function tray(CData $pv, array $data): void
+    {
+        $ptr = self::ffi()->webview_get_window($pv);
+        $c_tray = self::ffi()->new("struct tray[1]");
+        $tip_char = self::ffi()->new("char[" . strlen($data["tip"]) + 1 . "]");
+        self::ffi()::memcpy($tip_char, $data["tip"], strlen($data["tip"]));
+        $icon_char = self::ffi()->new("char[" . strlen($data["icon"]) + 1 . "]");
+        self::ffi()::memcpy($icon_char, $data["icon"], strlen($data["icon"]));
+        $c_tray[0]->tip = self::ffi()->cast("char *", $tip_char);
+        $c_tray[0]->icon_path = self::ffi()->cast("char *", $icon_char);
+        $menu_list = trayMenuList(self::ffi(), $data["menu"]);
+        $c_tray[0]->menu = self::ffi()::addr($menu_list[0]);
+        self::ffi()->window_create_tray(
+            $ptr,
+            self::ffi()->cast("struct tray*", $c_tray)
+        );
+    }
+
+    /**
+     * 销毁系统托盘
+     *
+     * @param CData $pv 窗口指针
+     * @return void
+     */
+    public static function destroyTray(CData $pv): void
+    {
+        $ptr = self::ffi()->webview_get_window($pv);
+        self::ffi()->window_destroy_tray($ptr);
     }
 }

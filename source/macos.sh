@@ -95,7 +95,7 @@ function main() {
     esac
     
     # 确保目标目录存在
-    mkdir -p "$(dirname "$dylib_file")" "$current_dir/seticon" "$current_dir/dialog" "$current_dir/webview"
+    mkdir -p "$(dirname "$dylib_file")" "$current_dir/seticon" "$current_dir/dialog" "$current_dir/webview" "$current_dir/window"
     
     # 清理构建环境
     clean_build
@@ -117,10 +117,12 @@ function main() {
     dialog_o="$current_dir/dialog/osdialog_mac.o"
     dialogc_o="$current_dir/dialog/osdialog.o"
     webview_o="$current_dir/webview/webview.o"
+    window_o="$current_dir/window/window_mac.o"
     
     icon_i="-I$current_dir/seticon"
     dialog_i="-I$current_dir/dialog"
     webview_i="-I$current_dir/webview"
+    window_i="-I$current_dir/window"
     
     # 编译源文件
     if ! build_library "gcc" "$extra_flags $CFLAGS" "$current_dir/seticon/icon.c" "$icon_o" "$icon_i"; then
@@ -128,6 +130,10 @@ function main() {
     fi
 
     if ! build_library "clang" "$extra_flags $OBJCFLAGS" "$current_dir/dialog/osdialog.c" "$dialogc_o" "$dialog_i"; then
+        exit 1
+    fi
+
+    if ! build_library "clang" "$extra_flags $OBJCFLAGS" "$current_dir/window/window_mac.c" "$window_o" "$window_i"; then
         exit 1
     fi
 
@@ -141,7 +147,7 @@ function main() {
     
     # 链接生成动态库
     log_info "链接动态库..."
-    clang++ $extra_flags -dynamiclib $LDFLAGS -install_name "@rpath/$(basename "$dylib_file")" -o "$dylib_file" "$webview_o" "$icon_o" "$dialogc_o" "$dialog_o" $FRAMEWORKS
+    clang++ $extra_flags -dynamiclib $LDFLAGS -install_name "@rpath/$(basename "$dylib_file")" -o "$dylib_file" "$webview_o" "$icon_o" "$dialogc_o" "$dialog_o" "$window_o" $FRAMEWORKS
     
     if [ $? -ne 0 ]; then
         log_error "链接动态库失败!"
@@ -153,8 +159,8 @@ function main() {
         log_info "生成的动态库信息:"
         ls -lh "$dylib_file"
         file "$dylib_file"
-        log_info "构建过程完成!"
         nm -g "$dylib_file"
+        log_info "构建过程完成!"
         return 0
     else
         log_error "动态库文件未生成!"

@@ -10,6 +10,9 @@
     "autoload": {
         "psr-4": {
             "Kingbes\\PebView\\": "src/"
-        }
+        },
+        "files": [
+            "src/Help.php"
+        ]
     }
 }

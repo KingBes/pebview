@@ -13,8 +13,6 @@ gcc -c %current_dir%dialog\osdialog_win.c -o %current_dir%dialog\osdialog_win.o 
 
 gcc -c %current_dir%window\window_win.c -o %current_dir%window\window_win.o -I%current_dir%window
 
-@REM cc -g -Wall -DTRAY_WINAPI=1 -Wall -Wextra -std=c99 -pedantic -c %current_dir%tray\tray.c -o %current_dir%tray\tray.o -I%current_dir%tray 
-
 g++ -shared ^
 -o %current_dir%..\lib\windows\PebView.dll ^
 %current_dir%seticon\icon.o ^

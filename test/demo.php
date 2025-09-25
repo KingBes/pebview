@@ -15,8 +15,19 @@ Window::setTitle($pv, "PebView"); // 设置窗口标题
 Window::setCloseCallback($pv, function ($pv) {
     // Dialog::msg("关闭窗口");
     var_dump("关闭窗口");
-    return true;
+
+    return false;
 });
+// 创建系统托盘
+Window::tray($pv, [
+    "tip" => "PebView",
+    "icon" => __DIR__ . "/php.ico",
+    "menu" => [
+        ["text" => "open", "cb" => function () {
+            var_dump("打开");
+        }]
+    ]
+]);
 // 绑定一个事件
 Window::bind($pv, "demo", function ($pv, ...$params) {
     // 这里可以写你要执行的代码

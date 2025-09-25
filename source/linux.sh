@@ -72,15 +72,25 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+echo "编译 window_gtk.c..."
+gcc -Wall -Wextra -pedantic -c "$current_dir/window/window_gtk.c" -o "$window_o" -I"$window_i" $gtk_cflags -fPIC
+if [ $? -ne 0 ]; then
+    echo "编译 window_gtk.c 失败!"
+    exit 1
+fi
+
 # 检查对象文件
 echo "对象文件信息:"
-ls -lh "$icon_o" "$dialog_o" "$webview_o"
+ls -lh "$icon_o" "$dialog_o" "$webview_o" "$window_o"
 echo "对象文件大小:"
-du -h "$icon_o" "$dialog_o" "$webview_o"
+du -h "$icon_o" "$dialog_o" "$webview_o" "$window_o"
 
 # 检查对象文件中的符号
 echo "检查 webview.o 中的符号..."
 nm -gC "$webview_o" | head -n 20
+
+echo "检查 window.o 中的符号..."
+nm -gC "$window_o" | head -n 20
 
 # 链接生成共享库 - 使用详细输出
 echo "链接共享库..."
@@ -88,7 +98,7 @@ echo "链接共享库..."
 link_success=0
 
 echo "基本链接..."
-g++ -shared -o "$dll_file" "$webview_o" "$icon_o" "$dialog_o" $gtk_libs -ldl -lstdc++
+g++ -shared -o "$dll_file" "$webview_o" "$icon_o" "$dialog_o" "$window_o" $gtk_libs -ldl -lstdc++
 
 # 检查最终库文件大小
 echo "生成的共享库信息:"
@@ -102,6 +112,6 @@ file "$dll_file"
 
 # 检查共享库中的符号
 echo "检查共享库中的关键符号..."
-nm -gC "$dll_file" | grep -E 'icon|osdialog|webview' 
+nm -gC "$dll_file" | grep -E 'icon|osdialog|webview|window' 
 
 echo "构建过程完成!"
