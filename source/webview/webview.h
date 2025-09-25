@@ -2286,6 +2286,7 @@ public:
       m_window = nullptr;
     }
     if (m_window_delegate) {
+      objc::msg_send<void>(m_window, "setDelegate:"_sel, nullptr);
       objc::msg_send<void>(m_window_delegate, "release"_sel);
       m_window_delegate = nullptr;
     }
@@ -2580,26 +2581,7 @@ private:
     }
     return objc::msg_send<id>((id)cls, "new"_sel);
   }
-  static id create_window_delegate() {
-    objc::autoreleasepool arp;
-    constexpr auto class_name = "WebviewNSWindowDelegate";
-    // Avoid crash due to registering same class twice
-    auto cls = objc_lookUpClass(class_name);
-    if (!cls) {
-      cls = objc_allocateClassPair((Class) "NSObject"_cls, class_name, 0);
-      class_addProtocol(cls, objc_getProtocol("NSWindowDelegate"));
-      class_addMethod(cls, "windowWillClose:"_sel,
-                      (IMP)(+[](id self, SEL, id notification) {
-                        auto window =
-                            objc::msg_send<id>(notification, "object"_sel);
-                        auto w = get_associated_webview(self);
-                        w->on_window_will_close(self, window);
-                      }),
-                      "v@:@");
-      objc_registerClassPair(cls);
-    }
-    return objc::msg_send<id>((id)cls, "new"_sel);
-  }
+  
   static id get_shared_application() {
     return objc::msg_send<id>("NSApplication"_cls, "sharedApplication"_sel);
   }
@@ -2809,16 +2791,6 @@ private:
   id m_manager{};
   bool m_owns_window{};
 };
-
-// 在析构函数中释放窗口委托
-cocoa_wkwebview_engine::~cocoa_wkwebview_engine() {
-  objc::autoreleasepool arp;
-  if (m_window_delegate) {
-    objc::msg_send<void>(m_window, "setDelegate:"_sel, nullptr);
-    objc::msg_send<void>(m_window_delegate, "release"_sel);
-    m_window_delegate = nullptr;
-  }
-}
 
 } // namespace detail
 
