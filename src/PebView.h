@@ -41,19 +41,14 @@ const char *osdialog_file(int action, const char *dir, const char *filename, con
 // window
 struct tray_menu
 {
+	int id;
 	char *text;
 	int disabled;
 	int checked;
 	void (*callback)(const void *ptr);
 };
-
-struct tray
-{
-	const char *tip;
-	const char *icon_path;
-	struct tray_menu *menu;
-};
 int window_show(const void *ptr);
 int window_hide(const void *ptr);
-int window_create_tray(const void *ptr, const struct tray *tray);
-int window_destroy_tray(const void *ptr);
+void *window_tray(const void *ptr, const char *icon);
+void window_tray_add_menu(const void *tray, struct tray_menu *menu);
+void window_tray_remove(void *tray);

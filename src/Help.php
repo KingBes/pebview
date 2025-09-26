@@ -4,21 +4,24 @@ namespace Kingbes\PebView;
 
 use \FFI\CData;
 
-function trayMenuList(\FFI $ffi, array $menu): CData
+function trayMenuList(\FFI $ffi, CData $tray, array $menu): void
 {
-    $c_menu_list = $ffi->new("struct tray_menu[" . count($menu) . "]");
+    $i = 1000;
     foreach ($menu as $key => $item) {
-        $c_menu = $ffi->new("struct tray_menu");
-        $char = $ffi->new("char[" . strlen($item["text"]) + 1 . "]");
-        $ffi::memcpy($char, $item["text"], strlen($item["text"]));
-        var_dump($char);
-        $c_menu->text = $ffi->cast("char *", $char);
-        $c_menu->callback = function () use ($item) {
-            $item["cb"];
+        $menu = $ffi->new("struct tray_menu");
+        $menu->id = $key + $i;
+        $text = $ffi->new("char[" . strlen($item["text"]) + 1 . "]");
+        $ffi::memcpy($text, $item["text"], strlen($item["text"]));
+        $menu->text = $ffi->cast("char *", $text);
+        if (isset($item["disabled"])) {
+            $menu->disabled = $item["disabled"];
+        }
+        if (isset($item["checked"])) {
+            $menu->checked = $item["checked"];
+        }
+        $menu->callback = function ($ptr) use ($item) {
+            $item["cb"]($ptr);
         };
-        $c_menu->disabled = $item["disabled"] ?? 0;
-        $c_menu->checked = $item["checked"] ?? 0;
-        $c_menu_list[$key] = $c_menu;
+        $ffi->window_tray_add_menu($tray, $ffi::addr($menu));
     }
-    return $c_menu_list;
 }

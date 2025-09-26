@@ -43,10 +43,12 @@ echo "GTK LIBS: $gtk_libs"
 icon_o="$current_dir/seticon/icon.o"
 dialog_o="$current_dir/dialog/osdialog_gtk.o"
 webview_o="$current_dir/webview/webview.o"
+window_o="$current_dir/window/window_gtk.o"
 
 icon_i="$current_dir/seticon"
 dialog_i="$current_dir/dialog"
 webview_i="$current_dir/webview"
+window_i="$current_dir/window"
 
 # 编译各个组件
 echo "编译 icon.c..."

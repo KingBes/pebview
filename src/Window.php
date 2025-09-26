@@ -32,7 +32,6 @@ class Window extends Base
      */
     public static function destroy(CData $pv): void
     {
-        self::destroyTray($pv);
         self::ffi()->webview_destroy($pv);
     }
 
@@ -212,9 +211,6 @@ class Window extends Base
     {
         $c_callable = function () use ($callable, $pv) {
             $cb =  $callable($pv);
-            if ($cb === true) {
-                self::destroyTray($pv);
-            }
             return $cb ? 1 : 0;
         };
         self::ffi()->webview_set_close_callback($pv, $c_callable);
@@ -243,38 +239,37 @@ class Window extends Base
     }
 
     /**
-     * 创建系统托盘
+     * 创建托盘
      *
      * @param CData $pv 窗口指针
-     * @return void
+     * @param string $icon 托盘图标
+     * @return CData
      */
-    public static function tray(CData $pv, array $data): void
+    public static function tray(CData $pv, string $icon): CData
     {
-        $ptr = self::ffi()->webview_get_window($pv);
-        $c_tray = self::ffi()->new("struct tray[1]");
-        $tip_char = self::ffi()->new("char[" . strlen($data["tip"]) + 1 . "]");
-        self::ffi()::memcpy($tip_char, $data["tip"], strlen($data["tip"]));
-        $icon_char = self::ffi()->new("char[" . strlen($data["icon"]) + 1 . "]");
-        self::ffi()::memcpy($icon_char, $data["icon"], strlen($data["icon"]));
-        $c_tray[0]->tip = self::ffi()->cast("char *", $tip_char);
-        $c_tray[0]->icon_path = self::ffi()->cast("char *", $icon_char);
-        $menu_list = trayMenuList(self::ffi(), $data["menu"]);
-        $c_tray[0]->menu = self::ffi()::addr($menu_list[0]);
-        self::ffi()->window_create_tray(
-            $ptr,
-            self::ffi()->cast("struct tray*", $c_tray)
-        );
+        return self::ffi()->window_tray(self::ffi()->webview_get_window($pv), $icon);
     }
 
     /**
-     * 销毁系统托盘
+     * 托盘菜单
      *
-     * @param CData $pv 窗口指针
+     * @param CData $tray 托盘指针
+     * @param array $menu 菜单数组
      * @return void
      */
-    public static function destroyTray(CData $pv): void
+    public static function trayMenu(CData $tray, array $menu): void
     {
-        $ptr = self::ffi()->webview_get_window($pv);
-        self::ffi()->window_destroy_tray($ptr);
+        trayMenuList(self::ffi(), $tray, $menu);
+    }
+
+    /**
+     * 移除托盘菜单
+     *
+     * @param CData $tray 托盘指针
+     * @return void
+     */
+    public static function trayRemove(CData $tray): void
+    {
+        self::ffi()->window_tray_remove($tray);
     }
 }
