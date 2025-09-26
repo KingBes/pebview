@@ -28,12 +28,11 @@ int window_hide(const void *ptr)
 }
 
 // 定义托盘结构体
-struct _TrayData {
-    GtkStatusIcon *status_icon;
+typedef struct {
     GtkWidget *menu;
+    GtkStatusIcon *status_icon;
     const void *window_ptr;
-};
-typedef struct _TrayData TrayData;
+} TrayData;
 
 // 菜单项回调函数
 static void menu_item_callback(GtkWidget *widget, gpointer data)
@@ -42,6 +41,22 @@ static void menu_item_callback(GtkWidget *widget, gpointer data)
     if (menu->callback && !menu->disabled) {
         menu->callback(menu);
     }
+}
+
+// 托盘图标右键点击回调
+static gboolean on_status_icon_popup_menu(GtkStatusIcon *status_icon,
+                                         guint button,
+                                         guint activate_time,
+                                         gpointer user_data)
+{
+    TrayData *tray_data = (TrayData *)user_data;
+    if (tray_data->menu) {
+        gtk_menu_popup(GTK_MENU(tray_data->menu), NULL, NULL,
+                      gtk_status_icon_position_menu,
+                      status_icon, button, activate_time);
+        return TRUE;
+    }
+    return FALSE;
 }
 
 // 创建窗口托盘
@@ -63,6 +78,10 @@ void *window_tray(const void *ptr, const char *icon)
     
     // 创建菜单
     tray_data->menu = gtk_menu_new();
+    
+    // 连接右键点击信号
+    g_signal_connect(tray_data->status_icon, "popup-menu",
+                    G_CALLBACK(on_status_icon_popup_menu), tray_data);
     
     // 设置图标可见
     gtk_status_icon_set_visible(tray_data->status_icon, TRUE);
@@ -94,9 +113,6 @@ void window_tray_add_menu(const void *tray, struct tray_menu *menu)
     // 添加到菜单
     gtk_menu_shell_append(GTK_MENU_SHELL(tray_data->menu), menu_item);
     gtk_widget_show(menu_item);
-    
-    // 设置菜单到状态图标
-    gtk_status_icon_set_menu(tray_data->status_icon, GTK_MENU(tray_data->menu));
 }
 
 // 移除托盘菜单
