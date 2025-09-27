@@ -55,7 +55,7 @@ static void menu_item_callback(GtkWidget *widget, gpointer data)
     }
 }
 
-// 托盘图标右键点击回调
+// 托盘图标点击回调
 static gboolean on_status_icon_popup_menu(GtkStatusIcon *status_icon,
                                           guint button,
                                           guint activate_time,
@@ -70,17 +70,6 @@ static gboolean on_status_icon_popup_menu(GtkStatusIcon *status_icon,
         return TRUE;
     }
     return FALSE;
-}
-
-// 托盘图片左键点击回调
-static void on_status_icon_activate(GtkStatusIcon *status_icon,
-                                    gpointer user_data)
-{
-    TrayData *tray_data = (TrayData *)user_data;
-    if (tray_data->window_ptr)
-    {
-        window_show(tray_data->window_ptr);
-    }
 }
 
 // 创建窗口托盘
@@ -112,7 +101,7 @@ void *window_tray(const void *ptr, const char *icon)
                      G_CALLBACK(on_status_icon_popup_menu), tray_data);
     // 连接左键点击信号
     g_signal_connect(tray_data->status_icon, "activate",
-                     G_CALLBACK(on_status_icon_activate), tray_data);
+                     G_CALLBACK(on_status_icon_popup_menu), tray_data);
 
     // 设置图标可见
     gtk_status_icon_set_visible(tray_data->status_icon, TRUE);

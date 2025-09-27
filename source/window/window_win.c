@@ -143,9 +143,9 @@ static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 
     case WM_USER + 1:
         // 处理托盘图标消息
-        if (lParam == WM_RBUTTONUP || lParam == WM_CONTEXTMENU)
+        if (lParam == WM_RBUTTONUP || lParam == WM_CONTEXTMENU || lParam == WM_LBUTTONUP)
         {
-            // 右键点击，显示菜单
+            // 点击，显示菜单
             if (tray_data && tray_data->hMenu)
             {
                 // 获取鼠标位置
@@ -181,22 +181,6 @@ static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 
                 // 发送消息以确保菜单正确关闭
                 PostMessage(hwnd, WM_NULL, 0, 0);
-            }
-        }
-        else if (lParam == WM_LBUTTONUP)
-        {
-            // 左键点击，显示/隐藏窗口
-            if (tray_data && tray_data->hwnd)
-            {
-                if (IsWindowVisible(tray_data->hwnd))
-                {
-                    ShowWindow(tray_data->hwnd, SW_HIDE);
-                }
-                else
-                {
-                    ShowWindow(tray_data->hwnd, SW_SHOW);
-                    SetForegroundWindow(tray_data->hwnd);
-                }
             }
         }
         break;
