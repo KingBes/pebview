@@ -10,169 +10,181 @@ use function Kingbes\PebView\trayMenuList;
  */
 class Window extends Base
 {
-    /**
-     * 创建窗口
-     *
-     * @param boolean $debug 是否开启调试模式
-     * @param CData|null $window 窗口指针
-     * 
-     * @return CData 窗口指针
-     */
-    public static function create(bool $debug, CData|null $window = null): CData
+    private CData $pv; // 窗口指针
+
+    public CData $tray; // 托盘指针
+
+    public function __construct(bool $debug = true)
     {
-        $win = self::ffi()->webview_create($debug, $window);
-        return $win;
+        $this->pv = self::ffi()->webview_create($debug, null);
     }
 
     /**
      * 销毁窗口
      *
-     * @param CData $pv 窗口指针
      * @return void
+     * @example $win->destroy(); 必须在`run()`后面
      */
-    public static function destroy(CData $pv): void
+    public function destroy(): void
     {
-        self::ffi()->webview_destroy($pv);
+        self::ffi()->webview_destroy($this->pv);
     }
 
     /**
      * 运行窗口
      *
-     * @param CData $pv 窗口指针
-     * @return void
+     * @return self
+     * @example $win->run(); 必须在`setHtml()`或者`navigate()`后面
      */
-    public static function run(CData $pv): void
+    public function run(): self
     {
-        self::ffi()->webview_run($pv);
+        self::ffi()->webview_run($this->pv);
+        return $this;
     }
 
     /**
      * 终止窗口
      *
-     * @param CData $pv 窗口指针
      * @return void
+     * @example $win->terminate(); 
      */
-    public static function terminate(CData $pv): void
+    public function terminate(): void
     {
-        self::ffi()->webview_terminate($pv);
+        $this->trayRemove();
+        self::ffi()->webview_terminate($this->pv);
     }
 
     /**
      * 分发回调函数
      *
-     * @param CData $pv 窗口指针
      * @param callable $callable 回调函数
      * @return void
+     * @example $win->dispatch(function ($win, $arg) {
+     *     // 这里可以写你要执行的代码
+     * });
      */
-    public static function dispatch(CData $pv, callable $callable): void
+    public function dispatch(callable $callable): self
     {
-        $c_callable = function (CData $pv, CData $arg) use ($callable) {
-            $callable($pv, $arg);
+        $win = $this;
+        $c_callable = function (CData $ptr, CData $arg) use ($callable, $win) {
+            $callable($win, $arg);
         };
-        self::ffi()->webview_dispatch($pv, $c_callable, null);
+        self::ffi()->webview_dispatch($this->pv, $c_callable, null);
+        return $this;
     }
 
     /**
      * 设置窗口图标
      *
-     * @param CData $pv 窗口指针
      * @param string $icon 图标路径
-     * @return void
+     * @return self
+     * @example $win->setIcon(图标路径); - windows 要求ico格式 - Linux 要求png格式 - MacOs ico
      */
-    public static function setIcon(CData $pv, string $icon): void
+    public function setIcon(string $icon): self
     {
-        $ptr = self::ffi()->webview_get_window($pv);
+        $ptr = self::ffi()->webview_get_window($this->pv);
         self::ffi()->set_icon($ptr, $icon);
+        return $this;
     }
 
     /**
      * 设置窗口标题
      *
-     * @param CData $pv
      * @param string $title
-     * @return void
+     * @return self
+     * @example $win->setTitle(窗口标题名称);
      */
-    public static function setTitle(CData $pv, string $title): void
+    public function setTitle(string $title): self
     {
-        self::ffi()->webview_set_title($pv, $title);
+        self::ffi()->webview_set_title($this->pv, $title);
+        return $this;
     }
 
     /**
      * 设置窗口大小
      *
-     * @param CData $pv 窗口指针
      * @param int $width 窗口宽度
      * @param int $height 窗口高度
      * @param WindowHint $hint 窗口提示
-     * @return void
+     * @return self
+     * @example $win->setSize(窗口宽度, 窗口高度, 窗口提示);
      */
-    public static function setSize(CData $pv, int $width, int $height, WindowHint $hint = WindowHint::None): void
+    public function setSize(int $width, int $height, WindowHint $hint = WindowHint::None): self
     {
-        self::ffi()->webview_set_size($pv, $width, $height, $hint->value);
+        self::ffi()->webview_set_size($this->pv, $width, $height, $hint->value);
+        return $this;
     }
 
     /**
      * 初始化窗口
      * 会在window.onload之前加载js代码
      *
-     * @param CData $pv
      * @param string $js
-     * @return void
+     * @return self
+     * @example $win->init(js代码);
      */
-    public static function init(CData $pv, string $js): void
+    public function init(string $js): self
     {
-        self::ffi()->webview_init($pv, $js);
+        self::ffi()->webview_init($this->pv, $js);
+        return $this;
     }
 
     /**
      * 执行js代码
      *
-     * @param CData $pv
      * @param string $js
-     * @return void
+     * @return self
+     * @example $win->eval(js代码);
      */
-    public static function eval(CData $pv, string $js): void
+    public function eval(string $js): self
     {
-        self::ffi()->webview_eval($pv, $js);
+        self::ffi()->webview_eval($this->pv, $js);
+        return $this;
     }
 
     /**
      * 设置窗口html内容
      *
-     * @param CData $pv 窗口指针
      * @param string $html html内容
-     * @return void
+     * @return self
+     * @example $win->setHtml(html内容);
      */
-    public static function setHtml(CData $pv, string $html): void
+    public function setHtml(string $html): self
     {
-        self::ffi()->webview_set_html($pv, $html);
+        self::ffi()->webview_set_html($this->pv, $html);
+        return $this;
     }
 
     /**
      * 导航窗口到指定url
      *
-     * @param CData $pv 窗口指针
      * @param string $url url地址
-     * @return void
+     * @return self
+     * @example $win->navigate(url地址);
      */
-    public static function navigate(CData $pv, string $url): void
+    public function navigate(string $url): self
     {
-        self::ffi()->webview_navigate($pv, $url);
+        self::ffi()->webview_navigate($this->pv, $url);
+        return $this;
     }
 
     /**
      * 绑定js函数到窗口
      *
-     * @param CData $pv 窗口指针
      * @param string $name js函数名称
      * @param callable $callable 函数回调
-     * @return void
+     * @return self
+     * @example $win->bind(js函数名称, function (...$params) {
+     *     // 这里可以写你要执行的代码
+     *     return "hello"; // 如需要返回数据给js则可用 return
+     * });
      */
-    public static function bind(CData $pv, string $name, callable $callable): void
+    public function bind(string $name, callable $callable): self
     {
+        $pv = $this->pv;
         $c_callable = function (string $id, string $req, mixed $arg) use ($callable, $pv) {
             $params = json_decode($req, true);
-            $value = $callable($pv, ...$params);
+            $value = $callable(...$params);
             if ($value) {
                 if ((is_object($value) || is_array($value))) {
                     self::ffi()->webview_return($pv, $id, 0, json_encode($value, 320));
@@ -185,91 +197,114 @@ class Window extends Base
                 }
             }
         };
-        self::ffi()->webview_bind($pv, $name, $c_callable, null);
+        self::ffi()->webview_bind($this->pv, $name, $c_callable, null);
+        return $this;
     }
 
     /**
      * 解绑js函数
      *
-     * @param CData $pv 窗口指针
      * @param string $name js函数名称
-     * @return void
+     * @return self
+     * @example $win->unBind(js函数名称);
      */
-    public static function unBind(CData $pv, string $name): void
+    public function unBind(string $name): self
     {
-        self::ffi()->webview_unbind($pv, $name);
+        self::ffi()->webview_unbind($this->pv, $name);
+        return $this;
     }
 
     /**
      * 设置窗口关闭事件
      *
-     * @param CData $pv 窗口指针
      * @param callable $callable<CData: bool> 关闭事件回调 返回 true 关闭，false 不关闭
-     * @return void
+     * @return self
+     * @example $win->setCloseCallback(function ($win) {
+     *     // 这里可以写你要执行的代码
+     *     return false; // 返回 true 关闭窗口，false 不关闭
+     * });
      */
-    public static function setCloseCallback(CData $pv, callable $callable): void
+    public function setCloseCallback(callable $callable): self
     {
-        $c_callable = function () use ($callable, $pv) {
-            $cb =  $callable($pv);
+        $win = $this;
+        $c_callable = function () use ($callable, $win) {
+            $cb =  $callable($win);
             return $cb ? 1 : 0;
         };
-        self::ffi()->webview_set_close_callback($pv, $c_callable);
+        self::ffi()->webview_set_close_callback($this->pv, $c_callable);
+        return $this;
     }
 
     /**
      * 窗口显示
      *
-     * @param CData $pv 窗口指针
-     * @return void
+     * @return self
+     * @example $win->show();
      */
-    public static function show(CData $pv): void
+    public function show(): self
     {
-        self::ffi()->window_show(self::ffi()->webview_get_window($pv));
+        self::ffi()->window_show(self::ffi()->webview_get_window($this->pv));
+        return $this;
     }
 
     /**
      * 窗口隐藏
      *
-     * @param CData $pv 窗口指针
-     * @return void
+     * @return self
+     * @example $win->hide();
      */
-    public static function hide(CData $pv): void
+    public function hide(): self
     {
-        self::ffi()->window_hide(self::ffi()->webview_get_window($pv));
+        self::ffi()->window_hide(self::ffi()->webview_get_window($this->pv));
+        return $this;
     }
 
     /**
      * 创建托盘
      *
-     * @param CData $pv 窗口指针
      * @param string $icon 托盘图标
-     * @return CData
+     * @return self
+     * @example $win->tray(托盘图标); - windows 要求ico格式 - Linux 要求png格式 - MacOs ico
      */
-    public static function tray(CData $pv, string $icon): CData
+    public function tray(string $icon): self
     {
-        return self::ffi()->window_tray(self::ffi()->webview_get_window($pv), $icon);
+        $this->tray = self::ffi()->window_tray(self::ffi()->webview_get_window($this->pv), $icon);
+        return $this;
     }
 
     /**
      * 托盘菜单
      *
-     * @param CData $tray 托盘指针
-     * @param array $menu 菜单数组
-     * @return void
+     * @param array<array{text: string, disabled: int, cb: callable}> $menu 菜单数组
+     * @return self
+     * @example $win->trayMenu([
+     *     [
+     *         "text" => "打开窗口",
+     *         "cb" => function ($win){
+     *             $win->show();
+     *         }
+     *     ],
+     *     [
+     *         "text" => "关闭窗口",
+     *         "cb" => function ($win){
+     *             $win->terminate();
+     *         }
+     *     ]
+     * ]); // disabled 为1表示禁用0表示不禁用,默认0
      */
-    public static function trayMenu(CData $tray, array $menu): void
+    public function trayMenu(array $menu): self
     {
-        trayMenuList(self::ffi(), $tray, $menu);
+        trayMenuList(self::ffi(), $this, $menu);
+        return $this;
     }
 
     /**
      * 移除托盘菜单
      *
-     * @param CData $tray 托盘指针
      * @return void
      */
-    public static function trayRemove(CData $tray): void
+    private function trayRemove(): void
     {
-        self::ffi()->window_tray_remove($tray);
+        self::ffi()->window_tray_remove($this->tray);
     }
 }

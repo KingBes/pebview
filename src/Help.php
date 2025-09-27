@@ -2,9 +2,7 @@
 
 namespace Kingbes\PebView;
 
-use \FFI\CData;
-
-function trayMenuList(\FFI $ffi, CData $tray, array $menu): void
+function trayMenuList(\FFI $ffi, Window $win, array $menu): void
 {
     $i = 1000;
     foreach ($menu as $key => $item) {
@@ -19,9 +17,9 @@ function trayMenuList(\FFI $ffi, CData $tray, array $menu): void
         if (isset($item["checked"])) {
             $menu->checked = $item["checked"];
         }
-        $menu->callback = function ($ptr) use ($item) {
-            $item["cb"]($ptr);
+        $menu->callback = function ($ptr) use ($item, $win) {
+            $item["cb"]($win);
         };
-        $ffi->window_tray_add_menu($tray, $ffi::addr($menu));
+        $ffi->window_tray_add_menu($win->tray, $ffi::addr($menu));
     }
 }
