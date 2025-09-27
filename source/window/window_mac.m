@@ -33,9 +33,10 @@ typedef struct {
     NSMenu *menu;
     const void *windowPtr;
     NSMutableArray *handlers; // 存储所有菜单项处理器的数组
+    NSMutableDictionary *menuItems; // 按ID存储菜单项的映射
 } TrayData;
 
-// 菜单项点击处理类 - 为每个菜单项创建唯一的类
+// 菜单项点击处理类
 @interface TrayMenuItemHandler : NSObject
 @property (assign) struct tray_menu *menuItem;
 @end
@@ -77,8 +78,9 @@ void *window_tray(const void *ptr, const char *icon)
     trayData->menu = [[NSMenu alloc] initWithTitle:@"TrayMenu"];
     [trayData->menu setAutoenablesItems:NO];
     
-    // 初始化处理器数组
+    // 初始化处理器数组和菜单项映射
     trayData->handlers = [[NSMutableArray alloc] init];
+    trayData->menuItems = [[NSMutableDictionary alloc] init];
     
     // 设置菜单到状态栏项
     [trayData->statusItem setMenu:trayData->menu];
@@ -94,13 +96,30 @@ void window_tray_add_menu(const void *tray, struct tray_menu *menu)
     TrayData *trayData = (TrayData *)tray;
     if (!trayData->menu) return;
     
+    // 检查是否已存在相同ID的菜单项
+    NSNumber *menuId = [NSNumber numberWithInt:menu->id];
+    if ([trayData->menuItems objectForKey:menuId]) {
+        // 已存在相同ID的菜单项，先移除旧的
+        NSMenuItem *existingItem = [trayData->menuItems objectForKey:menuId];
+        [trayData->menu removeItem:existingItem];
+        [trayData->menuItems removeObjectForKey:menuId];
+        
+        // 也需要从handlers中移除对应的处理器
+        for (TrayMenuItemHandler *handler in trayData->handlers) {
+            if (handler.menuItem && handler.menuItem->id == menu->id) {
+                [trayData->handlers removeObject:handler];
+                break;
+            }
+        }
+    }
+    
     // 创建菜单项处理器
     TrayMenuItemHandler *handler = [[TrayMenuItemHandler alloc] init];
     handler.menuItem = menu;
     
     // 将处理器添加到数组中以保持强引用
     [trayData->handlers addObject:handler];
-    [handler release]; // 数组会保留它，所以我们可以释放
+    [handler release];
     
     // 创建菜单项
     NSString *title = menu->text ? [NSString stringWithUTF8String:menu->text] : @"";
@@ -116,9 +135,12 @@ void window_tray_add_menu(const void *tray, struct tray_menu *menu)
     // 设置菜单项的tag为菜单ID，以便区分
     [menuItem setTag:menu->id];
     
+    // 存储菜单项引用
+    [trayData->menuItems setObject:menuItem forKey:menuId];
+    
     // 添加到菜单
     [trayData->menu addItem:menuItem];
-    [menuItem release]; // 菜单会保留它，所以我们可以释放
+    [menuItem release];
 }
 
 // 移除托盘菜单
@@ -132,16 +154,25 @@ void window_tray_remove(void *tray)
     if (trayData->statusItem) {
         [[NSStatusBar systemStatusBar] removeStatusItem:trayData->statusItem];
         [trayData->statusItem release];
+        trayData->statusItem = nil;
     }
     
     // 释放菜单
     if (trayData->menu) {
         [trayData->menu release];
+        trayData->menu = nil;
     }
     
     // 释放处理器数组
     if (trayData->handlers) {
         [trayData->handlers release];
+        trayData->handlers = nil;
+    }
+    
+    // 释放菜单项映射
+    if (trayData->menuItems) {
+        [trayData->menuItems release];
+        trayData->menuItems = nil;
     }
     
     // 释放内存
