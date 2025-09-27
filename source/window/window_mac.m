@@ -50,8 +50,10 @@ void *window_tray(const void *ptr, const char *icon)
     // 设置图标
     NSString *iconPath = [NSString stringWithUTF8String:icon];
     NSImage *image = [[NSImage alloc] initWithContentsOfFile:iconPath];
-    if (image) {
-        [trayData->statusItem setImage:image];
+    if (image) {   
+        // 调整图像大小以适应系统托盘
+        NSImage *resizedImage = resizeImageForTray(image);
+        [trayData->statusItem setImage:resizedImage];
         [image release];
     }
     
