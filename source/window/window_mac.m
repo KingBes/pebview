@@ -83,23 +83,24 @@ NSImage *resizeImageForTray(NSImage *image) {
 {
     // 右键点击 - 显示菜单
     if (_trayData && _trayData->menu) {
-        // 获取状态项视图的窗口
-        NSWindow *window = [self window];
-        if (!window) return;
+        // 获取状态项按钮的位置（这是托盘图标的实际位置）
+        NSStatusBarButton *button = _trayData->statusItem.button;
+        if (!button) return;
         
-        // 获取视图在屏幕上的位置
-        NSRect frameInWindow = [self convertRect:self.bounds toView:nil];
-        NSRect frameOnScreen = [window convertRectToScreen:frameInWindow];
+        // 获取按钮在屏幕上的位置
+        NSRect buttonFrame = button.frame;
+        NSWindow *buttonWindow = button.window;
+        NSRect screenFrame = [buttonWindow convertRectToScreen:buttonFrame];
         
         // 计算菜单显示位置（在图标下方）
-        NSPoint menuPosition = NSMakePoint(NSMidX(frameOnScreen), NSMinY(frameOnScreen));
+        NSPoint menuPosition = NSMakePoint(NSMidX(screenFrame), NSMinY(screenFrame));
         
         // 创建事件对象
         NSEvent *menuEvent = [NSEvent mouseEventWithType:NSEventTypeRightMouseDown
                                                 location:menuPosition
                                            modifierFlags:0
                                                timestamp:[NSDate timeIntervalSinceReferenceDate]
-                                            windowNumber:[window windowNumber]
+                                            windowNumber:[buttonWindow windowNumber]
                                                  context:nil
                                              eventNumber:0
                                               clickCount:1
