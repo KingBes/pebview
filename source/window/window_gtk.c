@@ -72,6 +72,19 @@ static gboolean on_status_icon_popup_menu(GtkStatusIcon *status_icon,
     return FALSE;
 }
 
+// 托盘图片左键点击回调
+static void on_status_icon_activate(GtkStatusIcon *status_icon,
+                                    gpointer user_data)
+{
+    TrayData *tray_data = (TrayData *)user_data;
+    if (tray_data->window_ptr)
+    {
+        window_show(tray_data->window_ptr);
+    }else{
+        window_hide(tray_data->window_ptr);
+    }
+}
+
 // 创建窗口托盘
 void *window_tray(const void *ptr, const char *icon)
 {
@@ -99,6 +112,9 @@ void *window_tray(const void *ptr, const char *icon)
     // 连接右键点击信号
     g_signal_connect(tray_data->status_icon, "popup-menu",
                      G_CALLBACK(on_status_icon_popup_menu), tray_data);
+    // 连接左键点击信号
+    g_signal_connect(tray_data->status_icon, "activate",
+                     G_CALLBACK(on_status_icon_activate), tray_data);
 
     // 设置图标可见
     gtk_status_icon_set_visible(tray_data->status_icon, TRUE);
