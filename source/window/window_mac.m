@@ -35,10 +35,9 @@ typedef struct {
     NSMutableArray *handlers; // 存储所有菜单项处理器的数组
 } TrayData;
 
-// 菜单项点击处理类
+// 菜单项点击处理类 - 为每个菜单项创建唯一的类
 @interface TrayMenuItemHandler : NSObject
 @property (assign) struct tray_menu *menuItem;
-@property (assign) int menuId;
 @end
 
 @implementation TrayMenuItemHandler
@@ -63,6 +62,7 @@ void *window_tray(const void *ptr, const char *icon)
     
     // 创建状态栏项
     trayData->statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
+    [trayData->statusItem retain];
     
     // 设置图标
     NSString *iconPath = [NSString stringWithUTF8String:icon];
@@ -70,6 +70,7 @@ void *window_tray(const void *ptr, const char *icon)
     if (image) {
         [image setSize:NSMakeSize(18, 18)];
         [trayData->statusItem setImage:image];
+        [image release];
     }
     
     // 创建菜单
@@ -96,10 +97,10 @@ void window_tray_add_menu(const void *tray, struct tray_menu *menu)
     // 创建菜单项处理器
     TrayMenuItemHandler *handler = [[TrayMenuItemHandler alloc] init];
     handler.menuItem = menu;
-    handler.menuId = menu->id;
     
     // 将处理器添加到数组中以保持强引用
     [trayData->handlers addObject:handler];
+    [handler release]; // 数组会保留它，所以我们可以释放
     
     // 创建菜单项
     NSString *title = menu->text ? [NSString stringWithUTF8String:menu->text] : @"";
@@ -115,14 +116,9 @@ void window_tray_add_menu(const void *tray, struct tray_menu *menu)
     // 设置菜单项的tag为菜单ID，以便区分
     [menuItem setTag:menu->id];
     
-    // 将处理器与菜单项关联
-    objc_setAssociatedObject(menuItem, 
-                            [NSString stringWithFormat:@"handler_%d", menu->id].UTF8String, 
-                            handler, 
-                            OBJC_ASSOCIATION_RETAIN);
-    
     // 添加到菜单
     [trayData->menu addItem:menuItem];
+    [menuItem release]; // 菜单会保留它，所以我们可以释放
 }
 
 // 移除托盘菜单
@@ -135,6 +131,7 @@ void window_tray_remove(void *tray)
     // 从状态栏移除项
     if (trayData->statusItem) {
         [[NSStatusBar systemStatusBar] removeStatusItem:trayData->statusItem];
+        [trayData->statusItem release];
     }
     
     // 释放菜单
