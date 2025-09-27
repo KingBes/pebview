@@ -37,7 +37,8 @@ typedef struct
 } TrayData;
 
 // 菜单项数据结构
-typedef struct {
+typedef struct
+{
     int id;
     char *text;
     int disabled;
@@ -52,6 +53,20 @@ static void menu_item_callback(GtkWidget *widget, gpointer data)
     if (menu->callback && !menu->disabled)
     {
         menu->callback(menu);
+    }
+}
+
+// 托盘图标左键点击回调
+static void on_status_icon_activate(GtkStatusIcon *status_icon, gpointer user_data)
+{
+    TrayData *tray_data = (TrayData *)user_data;
+    if (tray_data->menu)
+    {
+        // 获取当前事件时间
+        guint32 activate_time = gtk_get_current_event_time();
+        gtk_menu_popup(GTK_MENU(tray_data->menu), NULL, NULL,
+                       gtk_status_icon_position_menu,
+                       status_icon, 1, activate_time);
     }
 }
 
@@ -96,13 +111,12 @@ void *window_tray(const void *ptr, const char *icon)
     // 创建菜单
     tray_data->menu = gtk_menu_new();
 
-    // 连接右键点击信号
+    // 连接点击信号
     g_signal_connect(tray_data->status_icon, "popup-menu",
                      G_CALLBACK(on_status_icon_popup_menu), tray_data);
     // 连接左键点击信号
     g_signal_connect(tray_data->status_icon, "activate",
-                     G_CALLBACK(on_status_icon_popup_menu), tray_data);
-
+                     G_CALLBACK(on_status_icon_activate), tray_data);
     // 设置图标可见
     gtk_status_icon_set_visible(tray_data->status_icon, TRUE);
 
