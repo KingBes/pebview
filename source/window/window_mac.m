@@ -83,23 +83,28 @@ NSImage *resizeImageForTray(NSImage *image) {
 {
     // 右键点击 - 显示菜单
     if (_trayData && _trayData->menu) {
-        // 获取状态项的位置
-        NSRect frame = [self.window frame];
-        NSPoint point = NSMakePoint(NSMidX(frame), NSMinY(frame));
+        // 获取鼠标在屏幕上的位置
+        NSPoint mouseLocation = [NSEvent mouseLocation];
         
-        // 在正确位置显示菜单
-        NSEvent *fakeEvent = [NSEvent mouseEventWithType:NSEventTypeRightMouseDown
-                                                location:point
+        // 创建一个新的事件，确保菜单在正确位置显示
+        NSEvent *menuEvent = [NSEvent mouseEventWithType:NSEventTypeRightMouseDown
+                                                location:mouseLocation
                                            modifierFlags:0
                                                timestamp:[NSDate timeIntervalSinceReferenceDate]
-                                            windowNumber:[self.window windowNumber]
+                                            windowNumber:0
                                                  context:nil
                                              eventNumber:0
                                               clickCount:1
                                                 pressure:1.0];
         
-        [NSMenu popUpContextMenu:_trayData->menu withEvent:fakeEvent forView:self];
+        // 在鼠标位置显示菜单
+        [NSMenu popUpContextMenu:_trayData->menu withEvent:menuEvent forView:self];
     }
+}
+
+// 确保视图可以接收右键事件
+- (BOOL)acceptsFirstMouse:(NSEvent *)event {
+    return YES;
 }
 
 @end
@@ -149,6 +154,7 @@ void *window_tray(const void *ptr, const char *icon)
     
     // 创建菜单
     trayData->menu = [[NSMenu alloc] initWithTitle:@"TrayMenu"];
+    [trayData->menu setAutoenablesItems:NO]; // 禁用自动启用项
     trayData->menuItems = [[NSMutableArray alloc] init];
     
     return trayData;
