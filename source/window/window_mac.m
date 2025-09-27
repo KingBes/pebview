@@ -33,6 +33,26 @@ typedef struct {
     NSMutableArray *menuItems;
 } TrayData;
 
+// 调整图像大小到适合系统托盘的尺寸
+NSImage *resizeImageForTray(NSImage *image) {
+    // 系统托盘图标的推荐尺寸
+    CGFloat trayIconSize = 18.0; // macOS 系统托盘的标准尺寸
+    
+    // 创建新尺寸的图像
+    NSImage *resizedImage = [[NSImage alloc] initWithSize:NSMakeSize(trayIconSize, trayIconSize)];
+    
+    [resizedImage lockFocus];
+    NSRect rect = NSMakeRect(0, 0, trayIconSize, trayIconSize);
+    [[NSGraphicsContext currentContext] setImageInterpolation:NSImageInterpolationHigh];
+    [image drawInRect:rect
+             fromRect:NSMakeRect(0, 0, image.size.width, image.size.height)
+            operation:NSCompositingOperationCopy
+             fraction:1.0];
+    [resizedImage unlockFocus];
+    
+    return [resizedImage autorelease];
+}
+
 // 创建窗口托盘
 void *window_tray(const void *ptr, const char *icon)
 {
