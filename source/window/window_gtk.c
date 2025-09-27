@@ -80,8 +80,6 @@ static void on_status_icon_activate(GtkStatusIcon *status_icon,
     if (tray_data->window_ptr)
     {
         window_show(tray_data->window_ptr);
-    }else{
-        window_hide(tray_data->window_ptr);
     }
 }
 

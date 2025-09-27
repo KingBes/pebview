@@ -31,7 +31,7 @@ Window::trayMenu($tray, [
     [
         "text" => "关闭窗口",
         "cb" => function ($ptr) use ($pv, $tray) {
-            Window::destroy($pv);
+            Window::terminate($pv);
             Window::trayRemove($tray);
         }
     ]
