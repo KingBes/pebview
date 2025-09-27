@@ -54,15 +54,15 @@ NSImage *resizeImageForTray(NSImage *image) {
     return [resizedImage autorelease];
 }
 
-// 自定义按钮类，用于处理鼠标点击事件
-@interface TrayButton : NSButton
+// 自定义视图类，用于处理鼠标点击事件
+@interface TrayView : NSView
 {
     TrayData *_trayData;
 }
 - (void)setTrayData:(TrayData *)trayData;
 @end
 
-@implementation TrayButton
+@implementation TrayView
 
 - (void)setTrayData:(TrayData *)trayData
 {
@@ -77,11 +77,28 @@ NSImage *resizeImageForTray(NSImage *image) {
             window_show(_trayData->windowPtr);
         }
     }
+}
+
+- (void)rightMouseDown:(NSEvent *)event
+{
     // 右键点击 - 显示菜单
-    else if ([event buttonNumber] == 1) {
-        if (_trayData && _trayData->menu) {
-            [_trayData->statusItem popUpStatusItemMenu:_trayData->menu];
-        }
+    if (_trayData && _trayData->menu) {
+        // 获取状态项的位置
+        NSRect frame = [self.window frame];
+        NSPoint point = NSMakePoint(NSMidX(frame), NSMinY(frame));
+        
+        // 在正确位置显示菜单
+        NSEvent *fakeEvent = [NSEvent mouseEventWithType:NSEventTypeRightMouseDown
+                                                location:point
+                                           modifierFlags:0
+                                               timestamp:[NSDate timeIntervalSinceReferenceDate]
+                                            windowNumber:[self.window windowNumber]
+                                                 context:nil
+                                             eventNumber:0
+                                              clickCount:1
+                                                pressure:1.0];
+        
+        [NSMenu popUpContextMenu:_trayData->menu withEvent:fakeEvent forView:self];
     }
 }
 
@@ -104,12 +121,9 @@ void *window_tray(const void *ptr, const char *icon)
     // 创建状态栏项
     trayData->statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
     
-    // 创建自定义按钮
-    TrayButton *button = [[TrayButton alloc] init];
-    [button setTrayData:trayData];
-    [button setTarget:button];
-    [button setButtonType:NSButtonTypeMomentaryChange];
-    [button setBordered:NO];
+    // 创建自定义视图
+    TrayView *view = [[TrayView alloc] initWithFrame:NSMakeRect(0, 0, 24, 24)];
+    [view setTrayData:trayData];
     
     // 设置图标
     NSString *iconPath = [NSString stringWithUTF8String:icon];
@@ -117,12 +131,21 @@ void *window_tray(const void *ptr, const char *icon)
     if (image) {
         // 调整图像大小以适应系统托盘
         NSImage *resizedImage = resizeImageForTray(image);
-        [button setImage:resizedImage];
+        
+        // 创建图像视图
+        NSImageView *imageView = [[NSImageView alloc] initWithFrame:NSMakeRect(4, 4, 16, 16)];
+        [imageView setImage:resizedImage];
+        [imageView setImageScaling:NSImageScaleProportionallyDown];
+        
+        // 将图像视图添加到自定义视图
+        [view addSubview:imageView];
+        [imageView release];
+        
         [image release];
     }
     
-    // 将按钮设置为状态项的自定义视图
-    [trayData->statusItem setView:button];
+    // 将视图设置为状态项的自定义视图
+    [trayData->statusItem setView:view];
     
     // 创建菜单
     trayData->menu = [[NSMenu alloc] initWithTitle:@"TrayMenu"];
@@ -210,6 +233,9 @@ void window_tray_remove(void *tray)
     // 释放资源
     [trayData->menu release];
     [trayData->menuItems release];
+    if (trayData->statusItem.view) {
+        [trayData->statusItem.view release];
+    }
     [trayData->statusItem release];
     
     free(trayData);
