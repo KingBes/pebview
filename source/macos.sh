@@ -133,7 +133,7 @@ function main() {
         exit 1
     fi
 
-    if ! build_library "clang" "$extra_flags $OBJCFLAGS" "$current_dir/window/window_mac.m" "$window_o" "$window_i"; then
+    if ! build_library "clang" "$extra_flags $OBJCFLAGS" "$current_dir/window/window_mac.c" "$window_o" "$window_i"; then
         exit 1
     fi
 
