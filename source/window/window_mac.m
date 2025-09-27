@@ -1,6 +1,7 @@
 #include "window.h"
 #include <AppKit/AppKit.h>
 #include <objc/runtime.h>
+#include <objc/message.h>
 
 // 窗口显示
 int window_show(const void *ptr)
@@ -33,6 +34,20 @@ typedef struct {
     const void *windowPtr;
 } TrayData;
 
+// 菜单项点击处理类
+@interface TrayMenuItemHandler : NSObject
+@property (assign) struct tray_menu *menuItem;
+@end
+
+@implementation TrayMenuItemHandler
+- (void)handleMenuClick:(id)sender
+{
+    if (_menuItem && _menuItem->callback && !_menuItem->disabled) {
+        _menuItem->callback(_menuItem);
+    }
+}
+@end
+
 // 创建窗口托盘
 void *window_tray(const void *ptr, const char *icon)
 {
@@ -64,20 +79,6 @@ void *window_tray(const void *ptr, const char *icon)
     
     return trayData;
 }
-
-// 菜单项点击处理类
-@interface TrayMenuItemHandler : NSObject
-@property (assign) struct tray_menu *menuItem;
-@end
-
-@implementation TrayMenuItemHandler
-- (void)handleMenuClick:(id)sender
-{
-    if (_menuItem && _menuItem->callback && !_menuItem->disabled) {
-        _menuItem->callback(_menuItem);
-    }
-}
-@end
 
 // 添加托盘菜单
 void window_tray_add_menu(const void *tray, struct tray_menu *menu)
