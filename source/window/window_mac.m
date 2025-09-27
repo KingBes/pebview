@@ -32,6 +32,7 @@ typedef struct {
     NSStatusItem *statusItem;
     NSMenu *menu;
     const void *windowPtr;
+    NSMutableArray *menuHandlers; // 存储所有菜单处理器的数组
 } TrayData;
 
 // 菜单项点击处理类
@@ -48,6 +49,32 @@ typedef struct {
 }
 @end
 
+// 自定义状态项视图，用于处理鼠标点击
+@interface CustomStatusItemView : NSView
+@property (assign) TrayData *trayData;
+@end
+
+@implementation CustomStatusItemView
+
+- (void)mouseDown:(NSEvent *)event
+{
+    // 左键单击显示窗口
+    if (self.trayData && self.trayData->windowPtr) {
+        NSWindow *window = (NSWindow *)self.trayData->windowPtr;
+        [window makeKeyAndOrderFront:nil];
+    }
+}
+
+- (void)rightMouseDown:(NSEvent *)event
+{
+    // 右键单击显示菜单
+    if (self.trayData && self.trayData->statusItem) {
+        [self.trayData->statusItem popUpStatusItemMenu:self.trayData->menu];
+    }
+}
+
+@end
+
 // 创建窗口托盘
 void *window_tray(const void *ptr, const char *icon)
 {
@@ -58,6 +85,7 @@ void *window_tray(const void *ptr, const char *icon)
     if (!trayData) return NULL;
     
     trayData->windowPtr = ptr;
+    trayData->menuHandlers = [[NSMutableArray alloc] init];
     
     // 创建状态栏项
     trayData->statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
@@ -74,8 +102,10 @@ void *window_tray(const void *ptr, const char *icon)
     trayData->menu = [[NSMenu alloc] initWithTitle:@"TrayMenu"];
     [trayData->menu setAutoenablesItems:NO];
     
-    // 设置菜单到状态栏项
-    [trayData->statusItem setMenu:trayData->menu];
+    // 创建自定义视图来处理鼠标点击
+    CustomStatusItemView *customView = [[CustomStatusItemView alloc] init];
+    customView.trayData = trayData;
+    [trayData->statusItem setView:customView];
     
     return trayData;
 }
@@ -91,6 +121,9 @@ void window_tray_add_menu(const void *tray, struct tray_menu *menu)
     // 创建菜单项处理器
     TrayMenuItemHandler *handler = [[TrayMenuItemHandler alloc] init];
     handler.menuItem = menu;
+    
+    // 将处理器添加到数组中以保持其活性
+    [trayData->menuHandlers addObject:handler];
     
     // 创建菜单项
     NSString *title = menu->text ? [NSString stringWithUTF8String:menu->text] : @"";
@@ -125,6 +158,11 @@ void window_tray_remove(void *tray)
     // 释放菜单
     if (trayData->menu) {
         [trayData->menu release];
+    }
+    
+    // 释放菜单处理器数组
+    if (trayData->menuHandlers) {
+        [trayData->menuHandlers release];
     }
     
     // 释放内存
