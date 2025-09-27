@@ -31,6 +31,7 @@ typedef struct {
     NSStatusItem *statusItem;
     NSMenu *menu;
     NSMutableArray *menuItems;
+    const void *windowPtr; // 存储窗口指针，用于左键点击时显示窗口
 } TrayData;
 
 // 调整图像大小到适合系统托盘的尺寸
@@ -53,6 +54,39 @@ NSImage *resizeImageForTray(NSImage *image) {
     return [resizedImage autorelease];
 }
 
+// 自定义按钮类，用于处理鼠标点击事件
+@interface TrayButton : NSButton
+{
+    TrayData *_trayData;
+}
+- (void)setTrayData:(TrayData *)trayData;
+@end
+
+@implementation TrayButton
+
+- (void)setTrayData:(TrayData *)trayData
+{
+    _trayData = trayData;
+}
+
+- (void)mouseDown:(NSEvent *)event
+{
+    // 左键点击 - 显示窗口
+    if ([event buttonNumber] == 0) {
+        if (_trayData && _trayData->windowPtr) {
+            window_show(_trayData->windowPtr);
+        }
+    }
+    // 右键点击 - 显示菜单
+    else if ([event buttonNumber] == 1) {
+        if (_trayData && _trayData->menu) {
+            [_trayData->statusItem popUpStatusItemMenu:_trayData->menu];
+        }
+    }
+}
+
+@end
+
 // 创建窗口托盘
 void *window_tray(const void *ptr, const char *icon)
 {
@@ -64,25 +98,35 @@ void *window_tray(const void *ptr, const char *icon)
     TrayData *trayData = malloc(sizeof(TrayData));
     if (!trayData) return NULL;
     
+    // 存储窗口指针
+    trayData->windowPtr = ptr;
+    
     // 创建状态栏项
     trayData->statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
+    
+    // 创建自定义按钮
+    TrayButton *button = [[TrayButton alloc] init];
+    [button setTrayData:trayData];
+    [button setTarget:button];
+    [button setButtonType:NSButtonTypeMomentaryChange];
+    [button setBordered:NO];
     
     // 设置图标
     NSString *iconPath = [NSString stringWithUTF8String:icon];
     NSImage *image = [[NSImage alloc] initWithContentsOfFile:iconPath];
-    if (image) {   
+    if (image) {
         // 调整图像大小以适应系统托盘
         NSImage *resizedImage = resizeImageForTray(image);
-        [trayData->statusItem setImage:resizedImage];
+        [button setImage:resizedImage];
         [image release];
     }
+    
+    // 将按钮设置为状态项的自定义视图
+    [trayData->statusItem setView:button];
     
     // 创建菜单
     trayData->menu = [[NSMenu alloc] initWithTitle:@"TrayMenu"];
     trayData->menuItems = [[NSMutableArray alloc] init];
-    
-    [trayData->statusItem setMenu:trayData->menu];
-    [trayData->statusItem setHighlightMode:YES];
     
     return trayData;
 }
