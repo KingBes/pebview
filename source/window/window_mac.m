@@ -83,24 +83,24 @@ NSImage *resizeImageForTray(NSImage *image) {
 {
     // 右键点击 - 显示菜单
     if (_trayData && _trayData->menu) {
-        // 获取状态项按钮的位置（这是托盘图标的实际位置）
-        NSStatusBarButton *button = _trayData->statusItem.button;
-        if (!button) return;
+        // 获取状态项视图的窗口
+        NSWindow *window = [self window];
+        if (!window) return;
         
-        // 获取按钮在屏幕上的位置
-        NSRect buttonFrame = button.frame;
-        NSWindow *buttonWindow = button.window;
-        NSRect screenFrame = [buttonWindow convertRectToScreen:buttonFrame];
+        // 获取托盘图标在屏幕上的位置
+        NSRect iconFrame = [self frame];
+        NSRect iconFrameInWindow = [self convertRect:iconFrame toView:nil];
+        NSRect iconFrameOnScreen = [window convertRectToScreen:iconFrameInWindow];
         
         // 计算菜单显示位置（在图标下方）
-        NSPoint menuPosition = NSMakePoint(NSMidX(screenFrame), NSMinY(screenFrame));
+        NSPoint menuPosition = NSMakePoint(NSMidX(iconFrameOnScreen), NSMinY(iconFrameOnScreen));
         
         // 创建事件对象
         NSEvent *menuEvent = [NSEvent mouseEventWithType:NSEventTypeRightMouseDown
                                                 location:menuPosition
                                            modifierFlags:0
                                                timestamp:[NSDate timeIntervalSinceReferenceDate]
-                                            windowNumber:[buttonWindow windowNumber]
+                                            windowNumber:[window windowNumber]
                                                  context:nil
                                              eventNumber:0
                                               clickCount:1
@@ -117,7 +117,6 @@ NSImage *resizeImageForTray(NSImage *image) {
 }
 
 @end
-
 
 // 创建窗口托盘
 void *window_tray(const void *ptr, const char *icon)
@@ -208,6 +207,13 @@ void window_tray_add_menu(const void *tray, struct tray_menu *menu)
     
     TrayData *trayData = (TrayData *)tray;
     
+    // 极简实现：直接使用NSStatusItem的menu属性
+    // 这样系统会自动处理菜单显示位置
+    if (!trayData->menu) {
+        trayData->menu = [[NSMenu alloc] initWithTitle:@"TrayMenu"];
+        [trayData->menu setAutoenablesItems:NO];
+    }
+    
     // 创建菜单项
     NSString *title = menu->text ? [NSString stringWithUTF8String:menu->text] : @"";
     NSMenuItem *menuItem = [[NSMenuItem alloc] initWithTitle:title 
@@ -220,12 +226,15 @@ void window_tray_add_menu(const void *tray, struct tray_menu *menu)
     
     // 创建目标对象处理回调
     TrayMenuTarget *target = [[TrayMenuTarget alloc] initWithCallback:menu->callback 
-                                                            userData:NULL]; // 可根据需要传递用户数据
+                                                            userData:NULL];
     
     [menuItem setTarget:target];
     [menuItem setTag:menu->id];
     
     // 保存菜单项和目标对象引用
+    if (!trayData->menuItems) {
+        trayData->menuItems = [[NSMutableArray alloc] init];
+    }
     [trayData->menuItems addObject:menuItem];
     [trayData->menuItems addObject:target];
     
@@ -234,6 +243,9 @@ void window_tray_add_menu(const void *tray, struct tray_menu *menu)
     
     [menuItem release];
     [target release];
+    
+    // 将菜单关联到状态项
+    [trayData->statusItem setMenu:trayData->menu];
 }
 
 // 移除托盘菜单
