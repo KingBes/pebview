@@ -38,6 +38,7 @@ typedef struct {
 // 菜单项点击处理类
 @interface TrayMenuItemHandler : NSObject
 @property (assign) struct tray_menu *menuItem;
+@property (assign) int menuId;
 @end
 
 @implementation TrayMenuItemHandler
@@ -95,6 +96,7 @@ void window_tray_add_menu(const void *tray, struct tray_menu *menu)
     // 创建菜单项处理器
     TrayMenuItemHandler *handler = [[TrayMenuItemHandler alloc] init];
     handler.menuItem = menu;
+    handler.menuId = menu->id;
     
     // 将处理器添加到数组中以保持强引用
     [trayData->handlers addObject:handler];
@@ -109,6 +111,15 @@ void window_tray_add_menu(const void *tray, struct tray_menu *menu)
     [menuItem setEnabled:!menu->disabled];
     [menuItem setState:menu->checked ? NSControlStateValueOn : NSControlStateValueOff];
     [menuItem setTarget:handler];
+    
+    // 设置菜单项的tag为菜单ID，以便区分
+    [menuItem setTag:menu->id];
+    
+    // 将处理器与菜单项关联
+    objc_setAssociatedObject(menuItem, 
+                            [NSString stringWithFormat:@"handler_%d", menu->id].UTF8String, 
+                            handler, 
+                            OBJC_ASSOCIATION_RETAIN);
     
     // 添加到菜单
     [trayData->menu addItem:menuItem];
