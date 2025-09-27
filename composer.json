@@ -1,6 +1,6 @@
 {
     "name": "kingbes/pebview",
-    "description": "pebview for php",
+    "description": "一个跨平台webview 组件 ,它允许在自身原生 GUI 窗口中显示 HTML 内容。它让您可以在桌面应用程序中使用WEB技术，同时隐藏 GUI 依赖浏览器的事实。",
     "type": "library",
     "license": "MIT",
     "require": {
