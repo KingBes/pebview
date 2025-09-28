@@ -2,6 +2,9 @@
 
 > 一个跨平台webview 组件 ,它允许在自身原生 GUI 窗口中显示 HTML 内容。它让您可以在桌面应用程序中使用WEB技术，同时隐藏 GUI 依赖浏览器的事实。
 
+[中文文档](./doc/Chinese/Introduction.md)
+[English document](./doc/English/Introduction.md)
+
 ## 要求
 
 - PHP 8.2 或更高版本
@@ -39,3 +42,15 @@ HTML)
 ```
 
 ![](./test/demo.png)
+
+### 编译
+
+有关先决条件，请阅读[link](https://github.com/webview/webview#prerequisites)
+
+```bash
+./source/build.cmd // windows
+
+./source/linux.sh // linux
+
+./source/macos.sh // macos
+```

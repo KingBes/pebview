@@ -66,7 +66,7 @@ class Window extends Base
     public function dispatch(callable $callable): self
     {
         $win = $this;
-        $c_callable = function (CData $ptr, CData $arg) use ($callable, $win) {
+        $c_callable = function ($ptr, $arg) use ($callable, $win) {
             $callable($win, $arg);
         };
         self::ffi()->webview_dispatch($this->pv, $c_callable, null);
