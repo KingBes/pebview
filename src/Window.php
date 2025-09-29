@@ -52,6 +52,13 @@ class Window extends Base
     {
         $this->trayRemove();
         self::ffi()->webview_terminate($this->pv);
+        // 判断是否是webman框架
+        if (function_exists("runtime_path") && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            // 定义状态文件路径
+            $status_file = runtime_path() . DIRECTORY_SEPARATOR . '/windows/status_file';
+            // 写入状态文件
+            file_put_contents($status_file, '0');
+        }
     }
 
     /**
