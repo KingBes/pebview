@@ -1,7 +1,7 @@
 <?php
 
 return [
-    "pebview" => [
+    "PebView" => [
         "handler" => Kingbes\PebView\process\PebView::class,
     ],
 ];

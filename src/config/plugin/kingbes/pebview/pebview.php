@@ -4,6 +4,7 @@ use Kingbes\PebView\WindowHint;
 
 return [
     "debug" => true, // 是否开启调试模式
+    "init" => "", // 初始化js代码(会在window.onload之前加载js代码)
     "title" => "PebView", // 窗口标题
     "size" => [640, 480, WindowHint::None], // 窗口大小
     "icon" => base_path() . "/public/favicon.ico", // 窗口图标
@@ -31,6 +32,7 @@ return [
         [
             "name" => "hello", // 事件名称
             "cb" => function (...$params) { // 事件回调
+                // $params js传入的参数
                 return "hello";
             }
         ]

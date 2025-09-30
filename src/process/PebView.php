@@ -28,6 +28,9 @@ class PebView
         }
         $config = config("plugin.kingbes.pebview.pebview");
         $win = new Window($config["debug"]);
+        if (trim($config["init"]) !== "") {
+            $win->init($config["init"]);
+        }
         $win->setTitle($config["title"])
             ->setSize($config["size"][0], $config["size"][1], $config["size"][2])
             ->setIcon($config["icon"])
