@@ -12,7 +12,7 @@
 - Composer
 - Windows x86_64 
 - Linux x86_64 或 arrch64
-- MacOS x86_64 或 arm64(待)
+- MacOS x86_64 或 arm64
 
 ## 安装
 
