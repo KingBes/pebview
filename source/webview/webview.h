@@ -2400,6 +2400,8 @@ protected:
   }
   noresult set_html_impl(const std::string &html) override {
     objc::autoreleasepool arp;
+    // 保存HTML内容，以便刷新时可以重新加载
+    m_last_html = html;
     objc::msg_send<void>(m_webview, "loadHTMLString:baseURL:"_sel,
                          objc::msg_send<id>("NSString"_cls,
                                             "stringWithUTF8String:"_sel,
@@ -2419,6 +2421,25 @@ protected:
                                             "stringWithUTF8String:"_sel,
                                             js.c_str()),
                          nullptr);
+    return {};
+  }
+
+  noresult refresh_impl() override {
+    objc::autoreleasepool arp;
+    // 在macOS上，简单调用reload会导致使用set_html加载的内容变成空白
+    // 因为set_html使用nullptr作为baseURL，导致页面URL为about:blank
+    // 我们需要重新加载之前设置的HTML内容
+    if (!m_last_html.empty()) {
+      // 如果有保存的HTML内容，重新加载它
+      objc::msg_send<void>(m_webview, "loadHTMLString:baseURL:"_sel,
+                           objc::msg_send<id>("NSString"_cls,
+                                              "stringWithUTF8String:"_sel,
+                                              m_last_html.c_str()),
+                           nullptr);
+    } else {
+      // 否则执行普通的reload
+      objc::msg_send<void>(m_webview, "reload"_sel);
+    }
     return {};
   }
 
@@ -2790,6 +2811,8 @@ private:
   id m_webview{};
   id m_manager{};
   bool m_owns_window{};
+  // 保存最后设置的HTML内容，用于刷新功能
+  std::string m_last_html;
 };
 
 } // namespace detail
@@ -4586,6 +4609,11 @@ WEBVIEW_API webview_error_t webview_return(webview_t w, const char *id,
 
 WEBVIEW_API const webview_version_info_t *webview_version(void) {
   return &webview::detail::library_version_info;
+}
+
+WEBVIEW_API webview_error_t webview_refresh(webview_t w) {
+  using namespace webview::detail;
+  return api_filter([=] { return cast_to_webview(w)->refresh(); });
 }
 
 WEBVIEW_API webview_error_t webview_set_close_callback(webview_t w, int (*fn)(void*)) {
