@@ -1,0 +1,125 @@
+name: Build
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+
+  build-macos-arm64:
+    runs-on: macos-latest
+    name: Build for macOS arm64
+    env:
+      # 设置环境变量以确保脚本正确识别构建环境
+      BUILD_ARCH: arm64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build project for arm64
+      run: |
+        # 确保脚本有执行权限
+        chmod +x ./source/macos.sh
+        # 执行构建脚本
+        ./source/macos.sh
+
+    - name: Upload artifact for arm64
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-arm64
+        path: ./lib/macos/arm64/PebView.dylib
+        if-no-files-found: error
+  
+  build-windows-x86_64:
+    runs-on: windows-2022
+    name: Build for Windows x86_64
+    env:
+      # 设置环境变量以确保脚本正确识别构建环境
+      BUILD_ARCH: x86_64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up mingw-w64
+      uses: egor-tensin/setup-mingw@v2
+      with:
+        platform: x64
+
+    - name: Build project for x86_64
+      run: |
+        # 确保脚本有执行权限
+        chmod +x ./source/build.cmd
+        # 执行构建脚本
+        ./source/build.cmd
+
+    - name: Upload artifact for x86_64
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-x86_64
+        path: ./lib/windows/PebView.dll
+        if-no-files-found: error
+  
+  build-linux-x86_64:
+    runs-on: ubuntu-latest
+    name: Build for Linux x86_64
+    env:
+      # 设置环境变量以确保脚本正确识别构建环境
+      BUILD_ARCH: x86_64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up build environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential pkg-config
+        sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev
+
+    - name: Build project for x86_64
+      run: |
+        # 确保脚本有执行权限
+        chmod +x ./source/linux.sh
+        # 执行构建脚本
+        ./source/linux.sh
+
+    - name: Upload artifact for x86_64
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-x86_64
+        path: ./lib/linux/x86_64/libPebView.so
+        if-no-files-found: error
+  
+  build-linux-aarch64:
+    runs-on: ubuntu-latest
+    name: Build for Linux aarch64
+    env:
+      # 设置环境变量以确保脚本正确识别构建环境
+      BUILD_ARCH: aarch64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up build environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential pkg-config
+        sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev
+
+    - name: Build project for aarch64
+      run: |
+        # 确保脚本有执行权限
+        chmod +x ./source/linux.sh
+        # 执行构建脚本
+        ./source/linux.sh
+
+    - name: Upload artifact for aarch64
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-aarch64
+        path: ./lib/linux/aarch64/libPebView.so
+        if-no-files-found: error
