@@ -43,15 +43,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up mingw-w64
-      uses: egor-tensin/setup-mingw@v2
-      with:
-        platform: x64
+    - name: Set up build environment
+      run: |
+        # 使用 Chocolatey 安装 MinGW
+        choco install -y mingw
+        # 将 MinGW 添加到 PATH
+        $env:PATH += ";C:\ProgramData\mingw64\mingw64\bin"
+        # 保存 PATH 以便后续步骤使用
+        echo "C:\ProgramData\mingw64\mingw64\bin" >> $env:GITHUB_PATH
 
     - name: Build project for x86_64
       run: |
-        # 确保脚本有执行权限
-        chmod +x ./source/build.cmd
         # 执行构建脚本
         ./source/build.cmd
 
@@ -90,7 +92,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: linux-x86_64
-        path: ./lib/linux/x86_64/libPebView.so
+        path: ./lib/linux/x86_64/PebView.so
         if-no-files-found: error
   
   build-linux-aarch64:
@@ -104,16 +106,24 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up build environment
+    - name: Set up build environment for cross-compilation
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential pkg-config
-        sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev
+        # 安装交叉编译工具链
+        sudo apt-get install -y build-essential pkg-config crossbuild-essential-arm64
+        # 安装 aarch64 版本的依赖库
+        sudo apt-get install -y libgtk-3-dev:arm64 libwebkit2gtk-4.1-dev:arm64
+        # 安装其他必要的 aarch64 库
+        sudo apt-get install -y libglib2.0-dev:arm64 libcairo2-dev:arm64 libpango1.0-dev:arm64
 
     - name: Build project for aarch64
       run: |
         # 确保脚本有执行权限
         chmod +x ./source/linux.sh
+        # 设置交叉编译环境变量
+        export CC=aarch64-linux-gnu-gcc
+        export CXX=aarch64-linux-gnu-g++
+        export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
         # 执行构建脚本
         ./source/linux.sh
 
@@ -121,5 +131,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: linux-aarch64
-        path: ./lib/linux/aarch64/libPebView.so
+        path: ./lib/linux/aarch64/PebView.so
         if-no-files-found: error
