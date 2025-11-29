@@ -97,10 +97,10 @@ jobs:
 
   build-linux-arrch64:
     runs-on: ubuntu-22.04-arm
-    name: Build for Linux arm64
+    name: Build for Linux aarch64
     env:
       # 设置环境变量以确保脚本正确识别构建环境
-      BUILD_ARCH: arrch64
+      BUILD_ARCH: aarch64
 
     steps:
     - name: Checkout code
@@ -112,16 +112,16 @@ jobs:
         sudo apt-get install -y build-essential pkg-config
         sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev
 
-    - name: Build project for arrch64
+    - name: Build project for aarch64
       run: |
         # 确保脚本有执行权限
         chmod +x ./source/linux.sh
         # 执行构建脚本
         ./source/linux.sh
 
-    - name: Upload artifact for arrch64
+    - name: Upload artifact for aarch64
       uses: actions/upload-artifact@v4
       with:
-        name: linux-arrch64
-        path: ./lib/linux/arrch64/PebView.so
+        name: linux-aarch64
+        path: ./lib/linux/aarch64/PebView.so
         if-no-files-found: error
