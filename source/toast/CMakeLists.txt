@@ -1,0 +1,24 @@
+cmake_minimum_required(VERSION 3.4...3.27)
+project(wintoastlib VERSION 1.3.0 LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(WINTOASTLIB_LIBNAME WinToast)
+set(WINTOASTLIB_HEADERS 
+    ${CMAKE_CURRENT_LIST_DIR}/wintoastlib.h
+    ${CMAKE_CURRENT_LIST_DIR}/toast.h
+)
+set(WINTOASTLIB_SOURCES 
+    ${CMAKE_CURRENT_LIST_DIR}/wintoastlib.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/toast.cpp
+)
+
+add_library(${WINTOASTLIB_LIBNAME} SHARED ${WINTOASTLIB_HEADERS} ${WINTOASTLIB_SOURCES})
+
+# 添加BUILDING_DLL宏，确保函数正确导出
+target_compile_definitions(${WINTOASTLIB_LIBNAME} PRIVATE BUILDING_DLL)
+
+target_include_directories(${WINTOASTLIB_LIBNAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR})
+target_link_libraries(${WINTOASTLIB_LIBNAME} psapi)
+

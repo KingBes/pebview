@@ -18,29 +18,35 @@ $win->setSize(800, 600) // 设置窗口大小
     ->trayMenu([ // 添加托盘菜单
         [
             "text" => "打开窗口",
-            "cb" => function ($win){
+            "cb" => function ($win) {
                 $win->show();
             }
         ],
         [
             "text" => "关闭窗口",
-            "cb" => function ($win){
+            "cb" => function ($win) {
                 $win->terminate();
             }
         ]
     ])
     ->bind("demo", function (...$params) { // 绑定一个事件
         // 这里可以写你要执行的代码
-        Dialog::msg("Hello PebView!"); // 弹出一个消息框
+        sleep(3); // 模拟一个耗时操作
+        return "等待结束";
     })
     ->setHtml( // 设置窗口的 HTML 内容
         <<<HTML
+    <body style="background-color: #f0f0f0;">
     <h1>hello</h1><button onClick="onBtn()">click</button>
     <script>
     async function onBtn() {
-        await demo();
+        // 不等待 demo 事件执行完成
+        demo().then((res) => {
+            console.log(res);
+        });
     }
     </script>
+    </body>
 HTML
     )
     // 运行窗口
