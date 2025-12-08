@@ -7,17 +7,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(WINTOASTLIB_LIBNAME WinToast)
 set(WINTOASTLIB_HEADERS 
     ${CMAKE_CURRENT_LIST_DIR}/wintoastlib.h
-    ${CMAKE_CURRENT_LIST_DIR}/toast.h
+    ${CMAKE_CURRENT_LIST_DIR}/wintoast_c.h
 )
 set(WINTOASTLIB_SOURCES 
     ${CMAKE_CURRENT_LIST_DIR}/wintoastlib.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/toast.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/wintoast_c.cpp
 )
 
 add_library(${WINTOASTLIB_LIBNAME} SHARED ${WINTOASTLIB_HEADERS} ${WINTOASTLIB_SOURCES})
 
-# 添加BUILDING_DLL宏，确保函数正确导出
-target_compile_definitions(${WINTOASTLIB_LIBNAME} PRIVATE BUILDING_DLL)
+# 添加WINTOAST_EXPORTS宏，确保函数正确导出
+target_compile_definitions(${WINTOASTLIB_LIBNAME} PRIVATE WINTOAST_EXPORTS)
 
 target_include_directories(${WINTOASTLIB_LIBNAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(${WINTOASTLIB_LIBNAME} psapi)
