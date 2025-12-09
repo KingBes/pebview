@@ -5,4 +5,4 @@
 vendor
 composer.lock
 .codebuddy
-source/toast/build
+source/toast/windows/build

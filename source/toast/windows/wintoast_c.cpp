@@ -1,4 +1,4 @@
-#include "wintoast_c.h"
+#include "../toast.h"
 #include "wintoastlib.h"
 #include <string>
 #include <codecvt>
@@ -58,61 +58,48 @@ std::wstring utf8_to_wstring(const char *str)
     }
 }
 
-void *toastCreate()
+/**
+ * @brief 显示 toast 通知
+ *
+ * @param app 应用名称
+ * @param title 通知标题
+ * @param message 通知消息
+ * @param image_path 图片路径
+ * @return TOAST_API bool 是否成功显示通知
+ */
+bool toastShow(
+    const char *app,
+    const char *title,
+    const char *message,
+    const char *image_path)
 {
-    return WinToast::instance();
-}
-
-void toastSetAppName(void *instance, const char *app_name)
-{
-    WinToast *winToastInstance = static_cast<WinToast *>(instance);
-    winToastInstance->setAppName(utf8_to_wstring(app_name));
-}
-
-void toastSetAppUserModelId(void *instance, const char *name, const char *app_user_model_id, const char *version)
-{
-    WinToast *winToastInstance = static_cast<WinToast *>(instance);
-    winToastInstance->setAppUserModelId(WinToast::configureAUMI(utf8_to_wstring(name), utf8_to_wstring(app_user_model_id), utf8_to_wstring(version)));
-}
-
-bool toastInitialize(void *instance)
-{
-    WinToast *winToastInstance = static_cast<WinToast *>(instance);
+    WinToast *instance = WinToast::instance();
+    instance->setAppName(utf8_to_wstring(app));
+    instance->setAppUserModelId(WinToast::configureAUMI(utf8_to_wstring(app), L"", L""));
     WinToast::WinToastError error;
-    bool result = winToastInstance->initialize(&error);
-    return result;
-}
-
-void *toastCreateTemplate(int template_type)
-{
-    WinToastTemplate *templ = new WinToastTemplate((WinToastTemplate::WinToastTemplateType)template_type);
-    return templ;
-}
-
-void toastSetFirstLine(void *template_ptr, const char *first_line)
-{
-    WinToastTemplate *templ = static_cast<WinToastTemplate *>(template_ptr);
-    templ->setFirstLine(utf8_to_wstring(first_line));
-}
-
-void toastSetSecondLine(void *template_ptr, const char *second_line)
-{
-    WinToastTemplate *templ = static_cast<WinToastTemplate *>(template_ptr);
-    templ->setSecondLine(utf8_to_wstring(second_line));
-}
-
-void toastSetImagePath(void *template_ptr, const char *image_path)
-{
-    WinToastTemplate *templ = static_cast<WinToastTemplate *>(template_ptr);
-    templ->setImagePath(utf8_to_wstring(image_path));
-}
-
-bool toastShow(void *instance, void *template_ptr)
-{
+    if (!instance->initialize(&error))
+    {
+        return false;
+    }
+    WinToastTemplate templ(WinToastTemplate::ImageAndText02);
+    if (title)
+    {
+        templ.setFirstLine(utf8_to_wstring(title));
+    }
+    if (message)
+    {
+        templ.setSecondLine(utf8_to_wstring(message));
+    }
+    if (image_path)
+    {
+        templ.setImagePath(utf8_to_wstring(image_path));
+    }
     SimpleToastHandler *handler = new SimpleToastHandler();
-    WinToast *winToastInstance = static_cast<WinToast *>(instance);
-    WinToastTemplate *templ = static_cast<WinToastTemplate *>(template_ptr);
-    WinToast::WinToastError error;
-    INT64 toastId = winToastInstance->showToast(*templ, handler, &error);
-    return toastId >= 0;
+    INT64 toastId = WinToast::instance()->showToast(templ, handler, &error);
+    if (toastId > 0)
+    {
+        return true;
+    }
+    delete handler;
+    return false;
 }

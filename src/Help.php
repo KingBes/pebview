@@ -20,6 +20,6 @@ function trayMenuList(\FFI $ffi, Window $win, array $menu): void
         $menu->callback = function ($ptr) use ($item, $win) {
             $item["cb"]($win);
         };
-        $ffi->window_tray_add_menu($win->tray, $ffi::addr($menu));
+        $ffi["PebView"]->window_tray_add_menu($win->tray, $ffi::addr($menu));
     }
 }

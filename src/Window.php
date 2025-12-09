@@ -16,7 +16,7 @@ class Window extends Base
 
     public function __construct(bool $debug = true)
     {
-        $this->pv = self::ffi()->webview_create($debug, null);
+        $this->pv = self::ffi()["PebView"]->webview_create($debug, null);
     }
 
     /**
@@ -27,7 +27,7 @@ class Window extends Base
      */
     public function destroy(): void
     {
-        self::ffi()->webview_destroy($this->pv);
+        self::ffi()["PebView"]->webview_destroy($this->pv);
     }
 
     /**
@@ -38,7 +38,7 @@ class Window extends Base
      */
     public function run(): self
     {
-        self::ffi()->webview_run($this->pv);
+        self::ffi()["PebView"]->webview_run($this->pv);
         return $this;
     }
 
@@ -51,7 +51,7 @@ class Window extends Base
     public function terminate(): void
     {
         $this->trayRemove();
-        self::ffi()->webview_terminate($this->pv);
+        self::ffi()["PebView"]->webview_terminate($this->pv);
         // 判断是否是webman框架
         if (function_exists("runtime_path") && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
             // 定义状态文件路径
@@ -76,7 +76,7 @@ class Window extends Base
         $c_callable = function ($ptr, $arg) use ($callable, $win) {
             $callable($win, $arg);
         };
-        self::ffi()->webview_dispatch($this->pv, $c_callable, null);
+        self::ffi()["PebView"]->webview_dispatch($this->pv, $c_callable, null);
         return $this;
     }
 
@@ -89,8 +89,8 @@ class Window extends Base
      */
     public function setIcon(string $icon): self
     {
-        $ptr = self::ffi()->webview_get_window($this->pv);
-        self::ffi()->set_icon($ptr, $icon);
+        $ptr = self::ffi()["PebView"]->webview_get_window($this->pv);
+        self::ffi()["PebView"]->set_icon($ptr, $icon);
         return $this;
     }
 
@@ -103,7 +103,7 @@ class Window extends Base
      */
     public function setTitle(string $title): self
     {
-        self::ffi()->webview_set_title($this->pv, $title);
+        self::ffi()["PebView"]->webview_set_title($this->pv, $title);
         return $this;
     }
 
@@ -118,7 +118,7 @@ class Window extends Base
      */
     public function setSize(int $width, int $height, WindowHint $hint = WindowHint::None): self
     {
-        self::ffi()->webview_set_size($this->pv, $width, $height, $hint->value);
+        self::ffi()["PebView"]->webview_set_size($this->pv, $width, $height, $hint->value);
         return $this;
     }
 
@@ -132,7 +132,7 @@ class Window extends Base
      */
     public function init(string $js): self
     {
-        self::ffi()->webview_init($this->pv, $js);
+        self::ffi()["PebView"]->webview_init($this->pv, $js);
         return $this;
     }
 
@@ -145,7 +145,7 @@ class Window extends Base
      */
     public function eval(string $js): self
     {
-        self::ffi()->webview_eval($this->pv, $js);
+        self::ffi()["PebView"]->webview_eval($this->pv, $js);
         return $this;
     }
 
@@ -158,7 +158,7 @@ class Window extends Base
      */
     public function setHtml(string $html): self
     {
-        self::ffi()->webview_set_html($this->pv, $html);
+        self::ffi()["PebView"]->webview_set_html($this->pv, $html);
         return $this;
     }
 
@@ -171,7 +171,7 @@ class Window extends Base
      */
     public function navigate(string $url): self
     {
-        self::ffi()->webview_navigate($this->pv, $url);
+        self::ffi()["PebView"]->webview_navigate($this->pv, $url);
         return $this;
     }
 
@@ -194,17 +194,17 @@ class Window extends Base
             $value = $callable(...$params);
             if ($value) {
                 if ((is_object($value) || is_array($value))) {
-                    self::ffi()->webview_return($pv, $id, 0, json_encode($value, 320));
+                    self::ffi()["PebView"]->webview_return($pv, $id, 0, json_encode($value, 320));
                 } elseif (is_string($value)) {
-                    self::ffi()->webview_return($pv, $id, 0, '"' . $value . '"');
+                    self::ffi()["PebView"]->webview_return($pv, $id, 0, '"' . $value . '"');
                 } else if (is_bool($value)) {
-                    self::ffi()->webview_return($pv, $id, 0, $value ? 'true' : 'false');
+                    self::ffi()["PebView"]->webview_return($pv, $id, 0, $value ? 'true' : 'false');
                 } else {
-                    self::ffi()->webview_return($pv, $id, 0, "{$value}");
+                    self::ffi()["PebView"]->webview_return($pv, $id, 0, "{$value}");
                 }
             }
         };
-        self::ffi()->webview_bind($this->pv, $name, $c_callable, null);
+        self::ffi()["PebView"]->webview_bind($this->pv, $name, $c_callable, null);
         return $this;
     }
 
@@ -217,7 +217,7 @@ class Window extends Base
      */
     public function unBind(string $name): self
     {
-        self::ffi()->webview_unbind($this->pv, $name);
+        self::ffi()["PebView"]->webview_unbind($this->pv, $name);
         return $this;
     }
 
@@ -238,7 +238,7 @@ class Window extends Base
             $cb =  $callable($win);
             return $cb ? 1 : 0;
         };
-        self::ffi()->webview_set_close_callback($this->pv, $c_callable);
+        self::ffi()["PebView"]->webview_set_close_callback($this->pv, $c_callable);
         return $this;
     }
 
@@ -250,7 +250,7 @@ class Window extends Base
      */
     public function show(): self
     {
-        self::ffi()->window_show(self::ffi()->webview_get_window($this->pv));
+        self::ffi()["PebView"]->window_show(self::ffi()["PebView"]->webview_get_window($this->pv));
         return $this;
     }
 
@@ -262,7 +262,7 @@ class Window extends Base
      */
     public function hide(): self
     {
-        self::ffi()->window_hide(self::ffi()->webview_get_window($this->pv));
+        self::ffi()["PebView"]->window_hide(self::ffi()["PebView"]->webview_get_window($this->pv));
         return $this;
     }
 
@@ -275,7 +275,7 @@ class Window extends Base
      */
     public function tray(string $icon): self
     {
-        $this->tray = self::ffi()->window_tray(self::ffi()->webview_get_window($this->pv), $icon);
+        $this->tray = self::ffi()["PebView"]->window_tray(self::ffi()["PebView"]->webview_get_window($this->pv), $icon);
         return $this;
     }
 
@@ -301,7 +301,7 @@ class Window extends Base
      */
     public function trayMenu(array $menu): self
     {
-        trayMenuList(self::ffi(), $this, $menu);
+        trayMenuList(self::ffi()["PebView"], $this, $menu);
         return $this;
     }
 
@@ -312,6 +312,6 @@ class Window extends Base
      */
     private function trayRemove(): void
     {
-        self::ffi()->window_tray_remove($this->tray);
+        self::ffi()["PebView"]->window_tray_remove($this->tray);
     }
 }

@@ -17,7 +17,7 @@ class Dialog extends Base
      */
     public static function msg(string $message, DialogLevel $level = DialogLevel::Info, DialogBtn $buttons = DialogBtn::Ok): bool
     {
-        return self::ffi()->osdialog_message($level->value, $buttons->value, $message) === 1;
+        return self::ffi()["PebView"]->osdialog_message($level->value, $buttons->value, $message) === 1;
     }
 
     /**
@@ -30,7 +30,7 @@ class Dialog extends Base
      */
     public static function prompt(string $message, DialogLevel $level = DialogLevel::Info, string $text = ''): string
     {
-        return self::ffi()->osdialog_prompt($level->value, $message, $text) ?? '';
+        return self::ffi()["PebView"]->osdialog_prompt($level->value, $message, $text) ?? '';
     }
 
     /**
@@ -43,6 +43,6 @@ class Dialog extends Base
      */
     public static function file(string $dir, string $filename, FileAction $action): string
     {
-        return self::ffi()->osdialog_file($action->value, $dir, $filename, null) ?? '';
+        return self::ffi()["PebView"]->osdialog_file($action->value, $dir, $filename, null) ?? '';
     }
 }

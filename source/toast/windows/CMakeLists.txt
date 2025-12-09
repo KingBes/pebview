@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(WINTOASTLIB_LIBNAME WinToast)
 set(WINTOASTLIB_HEADERS 
     ${CMAKE_CURRENT_LIST_DIR}/wintoastlib.h
-    ${CMAKE_CURRENT_LIST_DIR}/wintoast_c.h
+    ${CMAKE_CURRENT_LIST_DIR}/../toast.h
 )
 set(WINTOASTLIB_SOURCES 
     ${CMAKE_CURRENT_LIST_DIR}/wintoastlib.cpp
