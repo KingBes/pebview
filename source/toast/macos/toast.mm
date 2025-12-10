@@ -1,98 +1,88 @@
 #include "../toast.h"
 #import <Foundation/Foundation.h>
 #import <UserNotifications/UserNotifications.h>
+#include <AppKit/AppKit.h>
 
-// Objective-C 辅助类
-@interface NotificationHelper : NSObject <UNUserNotificationCenterDelegate>
-+ (void)initializeNotifications;
-+ (void)sendNotificationWithApp:(NSString*)app 
-                         title:(NSString*)title 
-                       message:(NSString*)message 
-                     imagePath:(NSString*)imagePath;
+@interface NotificationDelegate : NSObject <UNUserNotificationCenterDelegate>
 @end
 
-@implementation NotificationHelper
-
-+ (void)initializeNotifications {
-    UNUserNotificationCenter* center = [UNUserNotificationCenter currentNotificationCenter];
-    center.delegate = (id<UNUserNotificationCenterDelegate>)self;
-    
-    UNAuthorizationOptions options = UNAuthorizationOptionAlert | UNAuthorizationOptionSound;
-    [center requestAuthorizationWithOptions:options completionHandler:^(BOOL granted, NSError * _Nullable error) {
-        if (!granted) {
-            NSLog(@"Notification permission denied");
-        }
-    }];
+@implementation NotificationDelegate
++ (instancetype)shared {
+    static NotificationDelegate* instance = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        instance = [[NotificationDelegate alloc] init];
+    });
+    return instance;
 }
 
-+ (void)sendNotificationWithApp:(NSString*)app 
-                         title:(NSString*)title 
-                       message:(NSString*)message 
-                     imagePath:(NSString*)imagePath {
-    
-    UNMutableNotificationContent* content = [[UNMutableNotificationContent alloc] init];
-    content.title = title ?: @"";
-    content.subtitle = app ?: @"";
-    content.body = message ?: @"";
-    content.sound = [UNNotificationSound defaultSound];
-    
-    // 添加应用图标（可选）
-    if (app) {
-        NSDictionary* appIconDict = @{@"app_icon": app};
-        content.userInfo = appIconDict;
-    }
-    
-    // 处理图片附件
-    if (imagePath && imagePath.length > 0) {
-        NSURL* url = [NSURL fileURLWithPath:imagePath];
-        NSError* error;
-        UNNotificationAttachment* attachment = [UNNotificationAttachment attachmentWithIdentifier:@"image" URL:url options:nil error:&error];
-        if (attachment && !error) {
-            content.attachments = @[attachment];
-        } else if (error) {
-            NSLog(@"Image attachment error: %@", error.localizedDescription);
-        }
-    }
-    
-    // 创建通知请求
-    UNNotificationRequest* request = [UNNotificationRequest 
-        requestWithIdentifier:[[NSUUID UUID] UUIDString]
-                      content:content
-                      trigger:[UNTimeIntervalNotificationTrigger triggerWithTimeInterval:0.1 repeats:NO]];
-    
-    // 发送通知
-    [[UNUserNotificationCenter currentNotificationCenter] addNotificationRequest:request withCompletionHandler:^(NSError * _Nullable error) {
-        if (error) {
-            NSLog(@"Add notification failed: %@", error.localizedDescription);
-        }
-    }];
-}
-
-// 前台显示通知
-+ (void)userNotificationCenter:(UNUserNotificationCenter *)center 
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center 
        willPresentNotification:(UNNotification *)notification 
          withCompletionHandler:(void (^)(UNNotificationPresentationOptions))completionHandler {
     completionHandler(UNAuthorizationOptionAlert | UNAuthorizationOptionSound);
 }
-
 @end
 
 bool toastShow(const char* app, const char* title, const char* message, const char* image_path) {
     @autoreleasepool {
+        // Initialize notification center
+        UNUserNotificationCenter* center = [UNUserNotificationCenter currentNotificationCenter];
+        [center setDelegate:[NotificationDelegate shared]];
+        
+        // Request permissions if needed
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
-            [NotificationHelper initializeNotifications];
+            [center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound) 
+                                  completionHandler:^(BOOL granted, NSError * _Nullable error) {
+                if (!granted) NSLog(@"Notification permission denied");
+            }];
         });
         
-        NSString* nsApp = app ? [NSString stringWithUTF8String:app] : nil;
-        NSString* nsTitle = title ? [NSString stringWithUTF8String:title] : nil;
-        NSString* nsMessage = message ? [NSString stringWithUTF8String:message] : nil;
-        NSString* nsImagePath = image_path ? [NSString stringWithUTF8String:image_path] : nil;
+        // Create notification content
+        UNMutableNotificationContent* content = [[UNMutableNotificationContent alloc] init];
+        content.title = [NSString stringWithUTF8String:title ?: ""];
+        content.subtitle = [NSString stringWithUTF8String:app ?: ""];
+        content.body = [NSString stringWithUTF8String:message ?: ""];
+        content.sound = [UNNotificationSound defaultSound];
         
-        [NotificationHelper sendNotificationWithApp:nsApp 
-                                            title:nsTitle 
-                                          message:nsMessage 
-                                        imagePath:nsImagePath];
-        return true;
+        // Add image attachment
+        if (image_path && strlen(image_path) > 0) {
+            NSString* path = [NSString stringWithUTF8String:image_path];
+            NSURL* url = [NSURL fileURLWithPath:path];
+            
+            if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
+                NSError* error;
+                UNNotificationAttachment* attachment = [UNNotificationAttachment 
+                    attachmentWithIdentifier:@"img" 
+                    URL:url 
+                    options:@{UNNotificationAttachmentOptionsTypeHintKey: @"public.image"} 
+                    error:&error];
+                
+                if (attachment && !error) {
+                    content.attachments = @[attachment];
+                }
+            }
+        }
+        
+        // Create and schedule request
+        UNNotificationRequest* request = [UNNotificationRequest 
+            requestWithIdentifier:[[NSUUID UUID] UUIDString]
+            content:content
+            trigger:[UNTimeIntervalNotificationTrigger triggerWithTimeInterval:0.1 repeats:NO]];
+        
+        __block bool success = false;
+        dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+        
+        [center addNotificationRequest:request withCompletionHandler:^(NSError * _Nullable error) {
+            if (error) {
+                NSLog(@"Error sending notification: %@", error.localizedDescription);
+            } else {
+                success = true;
+            }
+            dispatch_semaphore_signal(semaphore);
+        }];
+        
+        dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+        return success;
     }
 }
