@@ -166,7 +166,7 @@ function main() {
         return 1
     fi
 
-    g++ -std=c++11 -shared -fPIC -o "$toast_dylib_file" "$current_dir/toast/macos/toast.mm" -framework Foundation -framework AppKit -framework CoreFoundation -lobjc -mmacosx-version-min=10.9
+    g++ -std=c++11 -shared -fPIC -o "$toast_dylib_file" "$current_dir/toast/macos/toast.mm" -framework Foundation -framework AppKit -mmacosx-version-min=10.10
 
     # 检查最终库文件
     if [ -f "$toast_dylib_file" ]; then
