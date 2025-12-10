@@ -140,7 +140,7 @@ toast_cflags=$(pkg-config --cflags gtk+-3.0 libnotify)
 
 g++ -Wall -Wextra -pedantic -c "$current_dir/toast/linux/toast.c" -o "$toast_o" -I"$toast_i" $toast_cflags -fPIC
 
-g++ -shared -o "$Toast_dll_file" "$toast_o" $toast_cflags -fPIC
+g++ -shared -o "$Toast_dll_file" "$toast_o" $toast_cflags -fPIC -Wl,--export-dynamic
 
 echo "检查 Toast.so 中的符号..."
 nm -gC "$Toast_dll_file" | grep -E 'toastShow'

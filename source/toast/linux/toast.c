@@ -4,63 +4,51 @@
 #include <stdio.h>  // 用于打印错误
 #include <stdbool.h>
 
-// 全局标记：是否已初始化libnotify
-static bool notify_inited = false;
-
 bool toastShow(const char *app,
                const char *title,
                const char *message,
                const char *image_path)
 {
-    // 1. 参数合法性检查
-    if (title == NULL || message == NULL)
+    // 初始化 libnotify（只需执行一次）
+    static gboolean initialized = FALSE;
+    if (!initialized)
     {
-        fprintf(stderr, "错误：title或message不能为空！\n");
-        return false;
-    }
-
-    // 2. 初始化libnotify（仅首次调用）
-    if (!notify_inited)
-    {
-        if (!notify_init("GTK_Toast_Notification"))
+        if (!notify_init(app))
         {
-            fprintf(stderr, "错误：libnotify初始化失败！\n");
+            fprintf(stderr, "Failed to initialize libnotify\n");
             return false;
         }
-        notify_inited = true;
+        initialized = TRUE;
     }
 
-    // 3. 处理默认参数
-    const char *icon = image_path ? image_path : "dialog-info"; // 默认信息图标
-    const char *actual_content = (strlen(message) > 0) ? message : "无通知内容";
-    const char *actual_title = (strlen(title) > 0) ? title : "提示";
+    // 创建通知对象
+    NotifyNotification *notification = notify_notification_new(
+        title,
+        message,
+        (image_path && *image_path) ? image_path : NULL // 空路径时使用默认图标
+    );
 
-    // 4. 创建Toast通知（Toast风格：短超时、低打扰）
-    NotifyNotification *notify = notify_notification_new(
-        actual_title,
-        actual_content,
-        icon);
-    if (notify == NULL)
+    if (!notification)
     {
-        fprintf(stderr, "错误：创建通知对象失败！\n");
+        fprintf(stderr, "错误：libnotify创建通知失败！\n");
         return false;
     }
 
-    // 5. 设置Toast特性：3秒超时（符合Toast短提示风格）、普通紧急度
-    notify_notification_set_timeout(notify, 3000); // 3000ms=3秒
-    notify_notification_set_urgency(notify, NOTIFY_URGENCY_LOW);
+    // 设置通知属性
+    notify_notification_set_timeout(notification, 3000); // 3秒后自动关闭
+    notify_notification_set_urgency(notification, NOTIFY_URGENCY_NORMAL);
 
-    // 6. 显示通知并处理错误
+    // 显示通知
     GError *error = NULL;
-    bool success = notify_notification_show(notify, &error);
-    if (!success)
+    if (!notify_notification_show(notification, &error))
     {
-        fprintf(stderr, "错误：显示通知失败：%s\n", error->message);
+        fprintf(stderr, "错误：libnotify显示通知失败！\n");
         g_error_free(error);
+        g_object_unref(notification);
+        return false;
     }
 
-    // 7. 释放通知资源（libnotify内部保留显示状态，不影响通知展示）
-    g_object_unref(notify);
-
-    return success;
+    // 清理资源
+    g_object_unref(notification);
+    return true;
 }

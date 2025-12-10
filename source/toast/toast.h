@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdbool.h>
+
 #ifdef _WIN32
 #ifdef BUILDING_DLL
 #define TOAST_API __declspec(dllexport)
