@@ -161,13 +161,12 @@ function main() {
         file "$pebview_dylib_file"
         nm -g "$pebview_dylib_file"
         log_info "构建过程完成!"
-        return 0
     else
         log_error "动态库文件未生成!"
         return 1
     fi
 
-    g++ -shared -fPIC -o "$toast_dylib_file" "$current_dir/toast/macos/toast.mm" -framework Foundation -framework AppKit -mmacosx-version-min=10.9
+    g++ -std=c++11 -shared -fPIC -o "$toast_dylib_file" "$current_dir/toast/macos/toast.mm" -framework Foundation -framework AppKit -framework CoreFoundation -lobjc -mmacosx-version-min=10.9
 
     # 检查最终库文件
     if [ -f "$toast_dylib_file" ]; then
@@ -176,11 +175,12 @@ function main() {
         file "$toast_dylib_file"
         nm -g "$toast_dylib_file"
         log_info "构建过程完成!"
-        return 0
     else
         log_error "动态库文件未生成!"
         return 1
     fi
+
+    return 0
 }
 
 # 执行主函数
