@@ -136,11 +136,11 @@ echo "构建 Toast.so 开始..."
 toast_o="$current_dir/toast/linux/toast.o"
 toast_i="$current_dir/toast"
 
-toast_cflags=$(pkg-config --cflags gtk+-3.0 libnotify)
+toast_cflags=$(pkg-config --cflags libnotify glib-2.0)
 
 g++ -Wall -Wextra -pedantic -c "$current_dir/toast/linux/toast.c" -o "$toast_o" -I"$toast_i" $toast_cflags -fPIC
 
-g++ -shared -o "$Toast_dll_file" "$toast_o" $toast_cflags -fPIC -Wl,--export-dynamic
+g++ -shared -o "$Toast_dll_file" "$toast_o" -lnotify -lglib-2.0 -lgobject-2.0 -pthread -fPIC
 
 echo "检查 Toast.so 中的符号..."
 nm -gC "$Toast_dll_file" | grep -E 'toastShow'
