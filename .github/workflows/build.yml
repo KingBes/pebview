@@ -29,7 +29,8 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: macos-arm64
-        path: ./lib/macos/arm64/*.dylib
+        path: |
+          ./lib/macos/arm64/*
         if-no-files-found: error
   
   build-windows-x86_64:
@@ -74,7 +75,8 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: windows-x86_64
-        path: ./lib/windows/*.dll
+        path: |
+          ./lib/windows/*
         if-no-files-found: error
   
   build-linux-x86_64:
@@ -105,7 +107,8 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: linux-x86_64
-        path: ./lib/linux/x86_64/*.so
+        path: |
+          ./lib/linux/x86_64/*
         if-no-files-found: error
 
   build-linux-arrch64:
@@ -136,5 +139,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: linux-aarch64
-        path: ./lib/linux/aarch64/*.so
+        path: |
+          ./lib/linux/aarch64/*
         if-no-files-found: error

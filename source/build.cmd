@@ -40,7 +40,7 @@ g++ -shared ^
 @REM 删除所有.dll文件
 del /s /q %current_dir%..\lib\windows\Toast.dll
 
-cd %current_dir%toast
+cd %current_dir%toast\windows
 mkdir build
 cd build
 cmake ..
