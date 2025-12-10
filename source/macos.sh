@@ -35,9 +35,9 @@ function clean_build() {
     # 清理构建环境
     log_info "清理构建环境..."
     find "$current_dir" -type f -name "*.o" -exec rm -f {} \;
-    if [ -f "$dylib_file" ]; then
-        log_info "删除现有库文件: $dylib_file"
-        rm -f "$dylib_file"
+    if [ -f "$pebview_dylib_file" ]; then
+        log_info "删除现有库文件: $pebview_dylib_file"
+        rm -f "$pebview_dylib_file"
     fi
 }
 
@@ -78,14 +78,14 @@ function main() {
     case "$arch" in
         x86_64)
             # Intel 64位架构
-            dylib_file="$lib_dir/x86_64/PebView.dylib"
-            log_info "检测到 Intel 64位架构,目标文件: $dylib_file"
+            pebview_dylib_file="$lib_dir/x86_64/PebView.dylib"
+            toast_dylib_file="$lib_dir/x86_64/Toast.dylib"
             extra_flags="-arch x86_64"
             ;;
         arm64)
             # Apple Silicon 架构
-            dylib_file="$lib_dir/arm64/PebView.dylib"
-            log_info "检测到 Apple Silicon 架构,目标文件: $dylib_file"
+            pebview_dylib_file="$lib_dir/arm64/PebView.dylib"
+            toast_dylib_file="$lib_dir/arm64/Toast.dylib"
             extra_flags="-arch arm64"
             ;;
         *)
@@ -95,7 +95,7 @@ function main() {
     esac
     
     # 确保目标目录存在
-    mkdir -p "$(dirname "$dylib_file")" "$current_dir/seticon" "$current_dir/dialog" "$current_dir/webview" "$current_dir/window"
+    mkdir -p "$(dirname "$pebview_dylib_file")" "$current_dir/seticon" "$current_dir/dialog" "$current_dir/webview" "$current_dir/window"
     
     # 清理构建环境
     clean_build
@@ -147,7 +147,7 @@ function main() {
     
     # 链接生成动态库
     log_info "链接动态库..."
-    clang++ $extra_flags -dynamiclib $LDFLAGS -install_name "@rpath/$(basename "$dylib_file")" -o "$dylib_file" "$webview_o" "$icon_o" "$dialogc_o" "$dialog_o" "$window_o" $FRAMEWORKS
+    clang++ $extra_flags -dynamiclib $LDFLAGS -install_name "@rpath/$(basename "$pebview_dylib_file")" -o "$pebview_dylib_file" "$webview_o" "$icon_o" "$dialogc_o" "$dialog_o" "$window_o" $FRAMEWORKS
     
     if [ $? -ne 0 ]; then
         log_error "链接动态库失败!"
@@ -155,11 +155,26 @@ function main() {
     fi
     
     # 检查最终库文件
-    if [ -f "$dylib_file" ]; then
+    if [ -f "$pebview_dylib_file" ]; then
         log_info "生成的动态库信息:"
-        ls -lh "$dylib_file"
-        file "$dylib_file"
-        nm -g "$dylib_file"
+        ls -lh "$pebview_dylib_file"
+        file "$pebview_dylib_file"
+        nm -g "$pebview_dylib_file"
+        log_info "构建过程完成!"
+        return 0
+    else
+        log_error "动态库文件未生成!"
+        return 1
+    fi
+
+    g++ -shared -fPIC -o "$toast_dylib_file" "$current_dir/toast/macos/toast.mm" -framework Foundation -framework AppKit -mmacosx-version-min=10.9
+
+    # 检查最终库文件
+    if [ -f "$toast_dylib_file" ]; then
+        log_info "生成的动态库信息:"
+        ls -lh "$toast_dylib_file"
+        file "$toast_dylib_file"
+        nm -g "$toast_dylib_file"
         log_info "构建过程完成!"
         return 0
     else

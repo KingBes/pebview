@@ -29,7 +29,7 @@ bool toastShow(const char *app,
     }
 
     // 设置通知属性 (匹配 nm 输出中的符号)
-    notify_notification_set_timeout(notification, 3000); // 3秒后消失
+    notify_notification_set_timeout(notification, 8000); // 3秒后消失
     notify_notification_set_urgency(notification, NOTIFY_URGENCY_NORMAL);
 
     // 显示通知
