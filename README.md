@@ -45,7 +45,7 @@ HTML)
 
 ### 编译
 
-有关先决条件，请阅读[link](https://github.com/webview/webview#prerequisites)
+有关先决条件，请阅读文件
 
 ```bash
 ./source/build.cmd // windows

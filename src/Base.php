@@ -42,7 +42,7 @@ abstract class Base
         switch (PHP_OS_FAMILY) {
             case 'Windows':
                 foreach ($files as $file) {
-                    $name = basename($file, '*.h');
+                    $name = pathinfo($file, PATHINFO_FILENAME);
                     $lib = $libPath . "windows" . DIRECTORY_SEPARATOR . $name . ".dll";
                     self::$ffi[$name] = \FFI::cdef(file_get_contents($file), $lib);
                 }
@@ -50,7 +50,7 @@ abstract class Base
             case 'Linux':
                 $arch = self::detectArchitecture();
                 foreach ($files as $file) {
-                    $name = basename($file, '*.h');
+                    $name = pathinfo($file, PATHINFO_FILENAME);
                     $lib = $libPath . "linux" . DIRECTORY_SEPARATOR . $arch . DIRECTORY_SEPARATOR . $name . ".so";
                     self::$ffi[$name] = \FFI::cdef(file_get_contents($file), $lib);
                 }
@@ -59,7 +59,7 @@ abstract class Base
             case 'Darwin':
                 $arch = self::detectArchitecture('macos');
                 foreach ($files as $file) {
-                    $name = basename($file, '*.h');
+                    $name = pathinfo($file, PATHINFO_FILENAME);
                     $lib = $libPath . "macos" . DIRECTORY_SEPARATOR . $arch . DIRECTORY_SEPARATOR . $name . ".dylib";
                     self::$ffi[$name] = \FFI::cdef(file_get_contents($file), $lib);
                 }

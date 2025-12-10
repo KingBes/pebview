@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# 编译PebView.so 和 Toast.so要求
+# 1. 安装 gcc, g++, cmake, pkg-config, gtk+-3.0, webkit2gtk-4.1 libnotify-dev
+# 2. 设置环境变量 PATH 包含 gcc, g++, cmake, pkg-config 目录
+# 3. 设置环境变量 PKG_CONFIG_PATH 包含 gtk+-3.0, webkit2gtk-4.1 目录
+
 # 获取当前执行文件的目录
 current_dir=$(dirname "$(readlink -f "$0")")
 
@@ -10,24 +15,33 @@ find "$current_dir"/ -type f -name "*.o" -exec rm -f {} +
 arch=$(uname -m)
 if [ "$arch" == "x86_64" ]; then
     # 64位架构
-    dll_file="$current_dir/../lib/linux/x86_64/PebView.so"
-    echo "检测到 x86_64 架构，目标文件: $dll_file"
+    PebView_dll_file="$current_dir/../lib/linux/x86_64/PebView.so"
+    echo "检测到 x86_64 架构，目标文件: $PebView_dll_file"
+    Toast_dll_file="$current_dir/../lib/linux/x86_64/Toast.so"
+    echo "检测到 x86_64 架构，目标文件: $Toast_dll_file"
 elif [ "$arch" == "aarch64" ]; then
     # ARM64架构
-    dll_file="$current_dir/../lib/linux/aarch64/PebView.so"
-    echo "检测到 aarch64 架构，目标文件: $dll_file"
+    PebView_dll_file="$current_dir/../lib/linux/aarch64/PebView.so"
+    echo "检测到 aarch64 架构，目标文件: $PebView_dll_file"
+    Toast_dll_file="$current_dir/../lib/linux/aarch64/Toast.so"
+    echo "检测到 aarch64 架构，目标文件: $Toast_dll_file"
 else
     echo "不支持的架构: $arch"
     exit 1
 fi
 
 # 确保目标目录存在
-mkdir -p "$(dirname "$dll_file")"
+mkdir -p "$(dirname "$PebView_dll_file")"
+mkdir -p "$(dirname "$Toast_dll_file")"
 
 # 删除动态链接库
-if [ -f "$dll_file" ]; then
-    echo "删除现有库文件: $dll_file"
-    rm -f "$dll_file"
+if [ -f "$PebView_dll_file" ]; then
+    echo "删除现有库文件: $PebView_dll_file"
+    rm -f "$PebView_dll_file"
+fi
+if [ -f "$Toast_dll_file" ]; then
+    echo "删除现有库文件: $Toast_dll_file"
+    rm -f "$Toast_dll_file"
 fi
 
 # 获取GTK编译和链接选项
@@ -100,20 +114,35 @@ echo "链接共享库..."
 link_success=0
 
 echo "基本链接..."
-g++ -shared -o "$dll_file" "$webview_o" "$icon_o" "$dialog_o" "$window_o" $gtk_libs -ldl -lstdc++
+g++ -shared -o "$PebView_dll_file" "$webview_o" "$icon_o" "$dialog_o" "$window_o" $gtk_libs -ldl -lstdc++
 
 # 检查最终库文件大小
 echo "生成的共享库信息:"
-ls -lh "$dll_file"
+ls -lh "$PebView_dll_file"
 echo "共享库大小:"
-du -h "$dll_file"
+du -h "$PebView_dll_file"
 
 # 验证共享库类型
 echo "验证共享库类型:"
-file "$dll_file"
+file "$PebView_dll_file"
 
 # 检查共享库中的符号
 echo "检查共享库中的关键符号..."
-nm -gC "$dll_file" | grep -E 'icon|osdialog|webview|window' 
+nm -gC "$PebView_dll_file" | grep -E 'icon|osdialog|webview|window' 
 
-echo "构建过程完成!"
+echo "构建 PebView.so 完成!"
+
+echo "构建 Toast.so 开始..."
+toast_o="$current_dir/toast/linux/toast.o"
+toast_i="$current_dir/toast"
+
+toast_cflags=$(pkg-config --cflags gtk+-3.0 libnotify)
+
+g++ -Wall -Wextra -pedantic -c "$current_dir/toast/linux/toast.c" -o "$toast_o" -I"$toast_i" $toast_cflags -fPIC
+
+g++ -shared -o "$Toast_dll_file" "$toast_o" $toast_cflags -fPIC
+
+echo "检查 Toast.so 中的符号..."
+nm -gC "$Toast_dll_file" | grep -E 'toastShow'
+
+echo "构建 Toast.so 完成!"

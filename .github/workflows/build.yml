@@ -29,7 +29,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: macos-arm64
-        path: ./lib/macos/arm64/PebView.dylib
+        path: ./lib/macos/arm64/*.dylib
         if-no-files-found: error
   
   build-windows-x86_64:
@@ -51,6 +51,19 @@ jobs:
         $env:PATH += ";C:\ProgramData\mingw64\mingw64\bin"
         # 保存 PATH 以便后续步骤使用
         echo "C:\ProgramData\mingw64\mingw64\bin" >> $env:GITHUB_PATH
+        # 安装 msvc 和Windows SDK
+        choco install -y visualstudio2022-workload-vctools
+        choco install -y windows-sdk-10
+        # 将 Windows SDK 添加到 PATH
+        $env:PATH += ";C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64"
+        # 保存 PATH 以便后续步骤使用
+        echo "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64" >> $env:GITHUB_PATH
+        # 安装 CMake
+        choco install -y cmake
+        # 将 CMake 添加到 PATH
+        $env:PATH += ";C:\Program Files\CMake\bin"
+        # 保存 PATH 以便后续步骤使用
+        echo "C:\Program Files\CMake\bin" >> $env:GITHUB_PATH
 
     - name: Build project for x86_64
       run: |
@@ -61,7 +74,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: windows-x86_64
-        path: ./lib/windows/PebView.dll
+        path: ./lib/windows/*.dll
         if-no-files-found: error
   
   build-linux-x86_64:
@@ -92,7 +105,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: linux-x86_64
-        path: ./lib/linux/x86_64/PebView.so
+        path: ./lib/linux/x86_64/*.so
         if-no-files-found: error
 
   build-linux-arrch64:
@@ -123,5 +136,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: linux-aarch64
-        path: ./lib/linux/aarch64/PebView.so
+        path: ./lib/linux/aarch64/*.so
         if-no-files-found: error

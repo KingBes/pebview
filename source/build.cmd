@@ -1,3 +1,7 @@
+@REM 编译PebView.dll要求
+@REM 1. 安装 mingw64
+@REM 2. 设置环境变量 PATH 包含 mingw64 目录
+
 @REM 获取当前执行文件的目录
 set current_dir=%~dp0
 
@@ -26,3 +30,19 @@ g++ -shared ^
 -I%current_dir%dialog ^
 -I%current_dir%seticon ^
 -I%current_dir%window
+
+@REM 编译Toast.dll要求
+@REM 1. 安装 msvc 和 Windows sdk 和 cmake
+@REM 2. 设置环境变量 PATH 包含 msvc 目录
+@REM 3. 设置环境变量 INCLUDE 包含 Windows sdk 目录
+@REM 4. 设置环境变量 LIB 包含 Windows sdk 目录
+
+@REM 删除所有.dll文件
+del /s /q %current_dir%..\lib\windows\Toast.dll
+
+cd %current_dir%toast
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+copy Release\WinToast.dll %current_dir%..\lib\windows\Toast.dll
