@@ -25,6 +25,7 @@ composer require kingbes/pebview
 
  - `use Kingbes\PebView\Window;` 窗口类->[进入详情](./Window.md)
  - `use Kingbes\PebView\Dialog;` 对话框类->[进入详情](./Dialog.md)
+ - `use Kingbes\PebView\Toast;` 通知类->[进入详情](./Toast.md)
 
 ### 枚举
 
