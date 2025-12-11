@@ -14,5 +14,10 @@
         "files": [
             "src/Help.php"
         ]
+    },
+    "scripts": {
+        "post-update-cmd": [
+            "Kingbes\\PebView\\Install::fileDownload"
+        ]
     }
 }

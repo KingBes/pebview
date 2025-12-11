@@ -113,11 +113,10 @@ abstract class Base
     /**
      * 检测当前系统架构
      * 
-     * @param string $osType 操作系统类型，用于处理特定系统的架构命名差异
      * @return string 系统架构标识符
      * @throws \RuntimeException 如果架构不被支持
      */
-    private static function detectArchitecture(string $osType = ''): string
+    private static function detectArchitecture(): string
     {
         // 对于 Windows 系统，只需要检查 x86_64 架构
         if (PHP_OS_FAMILY === 'Windows') {
