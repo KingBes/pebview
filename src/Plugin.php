@@ -79,6 +79,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         // 下载文件然后解压到lib目录
         $libDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . $os . DIRECTORY_SEPARATOR . $arch;
         if (!is_dir($libDir)) {
+            // 递归创建目录
             mkdir($libDir, 0755, true);
         }
         
@@ -92,7 +93,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                 'http' => [
                     'follow_location' => true,
                     'max_redirects' => 10,
-                    'timeout' => 30,
+                    'timeout' => 60,
                 ],
                 'ssl' => [
                     'verify_peer' => false,
