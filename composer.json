@@ -1,11 +1,12 @@
 {
     "name": "kingbes/pebview",
     "description": "一个跨平台webview 组件 ,它允许在自身原生 GUI 窗口中显示 HTML 内容。它让您可以在桌面应用程序中使用WEB技术，同时隐藏 GUI 依赖浏览器的事实。",
-    "type": "library",
+    "type": "composer-plugin",
     "license": "MIT",
     "require": {
         "php": ">=8.2",
-        "ext-ffi": "*"
+        "ext-ffi": "*",
+        "composer-plugin-api": "*"
     },
     "autoload": {
         "psr-4": {
@@ -15,9 +16,9 @@
             "src/Help.php"
         ]
     },
-    "scripts": {
-        "post-update-cmd": [
-            "Kingbes\\PebView\\Install::fileDownload"
-        ]
-    }
+    "extra": {
+        "class": "Kingbes\\PebView\\Plugin"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }
