@@ -13,4 +13,8 @@ source/toast/windows/build
 *.exp
 *.obj
 *.idb
-ext
+!lib/
+!lib/**/*.dll
+!lib/**/*.so
+!lib/**/*.dylib
+!lib/**/*.lib
