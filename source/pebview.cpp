@@ -1,3 +1,4 @@
+// peb -dir sdk8.5.1 -i .\source\webview -i .\source\seticon -i .\source\window -i .\source\toast -i .\source\dialog -i .\source\toast\windows -out pebview.dll -c pebview.cpp .\source\seticon\icon.c .\source\window\window_win.c .\source\dialog\osdialog_win.c .\source\dialog\osdialog.c .\source\toast\windows\wintoast_c.cpp .\source\toast\windows\wintoastlib.cpp
 #include "php++.h"
 #include "webview.h"
 #include "icon.h"
