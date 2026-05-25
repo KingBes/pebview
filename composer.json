@@ -1,11 +1,14 @@
 {
     "name": "kingbes/pebview",
     "description": "一个跨平台webview 组件 ,它允许在自身原生 GUI 窗口中显示 HTML 内容。它让您可以在桌面应用程序中使用WEB技术，同时隐藏 GUI 依赖浏览器的事实。",
-    "type": "ext",
+    "type": "library",
     "license": "MIT",
     "require": {
-        "php": ">=8.2",
-        "ext-ffi": "*"
+        "php": ">=8.2"
+    },
+    "suggest": {
+        "ext-ffi": "未安装 pebview 扩展时必需，用于 FFI 回退模式",
+        "ext-pebview": "推荐安装以获得最佳性能（原生 C 扩展）"
     },
     "autoload": {
         "psr-4": {

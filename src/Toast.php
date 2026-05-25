@@ -2,6 +2,11 @@
 
 namespace Kingbes\PebView;
 
+// pebview 扩展已加载时，类已在 C 层注册，跳过 PHP FFI 定义
+if (extension_loaded('pebview')) {
+    return;
+}
+
 /**
  *  toast 提示类 Toast
  */

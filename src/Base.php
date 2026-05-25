@@ -5,6 +5,11 @@ declare(strict_types=1);
 
 namespace Kingbes\PebView;
 
+// pebview 扩展已加载时，类已在 C 层注册，跳过 PHP FFI 定义
+if (extension_loaded('pebview')) {
+    return;
+}
+
 /**
  * 抽象类 Base
  */

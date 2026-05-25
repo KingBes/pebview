@@ -2,7 +2,11 @@
 
 namespace Kingbes\PebView;
 
-use \FFI\CData;
+// pebview 扩展已加载时，类已在 C 层注册，跳过 PHP FFI 定义
+if (extension_loaded('pebview')) {
+    return;
+}
+
 use function Kingbes\PebView\trayMenuList;
 
 /**
@@ -10,9 +14,11 @@ use function Kingbes\PebView\trayMenuList;
  */
 class Window extends Base
 {
-    private CData $pv; // 窗口指针
+    /** @var \FFI\CData 窗口指针 */
+    private mixed $pv;
 
-    public CData $tray; // 托盘指针
+    /** @var \FFI\CData 托盘指针 */
+    public mixed $tray;
 
     public function __construct(bool $debug = true)
     {
