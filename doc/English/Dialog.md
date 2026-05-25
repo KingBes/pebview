@@ -44,6 +44,7 @@ Static function
   - `string` `$dir` Dialog default directory
   - `string` `$filename` Dialog default filename
   - `FileAction` `$action` File action type
+  - `string` `$filters` File filters, defaults to empty string, format: "Display Name:Extension,Extension;Display Name:Extension" Images:png,jpg,gif;Text:txt,md
     Returns
   - `string` Path of the selected file
 

@@ -39,10 +39,12 @@ class Dialog extends Base
      * @param string $dir 对话框默认目录
      * @param string $filename 对话框默认文件名
      * @param FileAction $action 文件操作类型
+     * @param string $filters 文件过滤器 默认为空 格式: "显示名:扩展名,扩展名;显示名:扩展名" Images:png,jpg,gif;Text:txt,md
      * @return string 用户选择的文件路径
      */
-    public static function file(string $dir, string $filename, FileAction $action): string
+    public static function file(string $dir, string $filename, FileAction $action, string $filters = ''): string
     {
-        return self::ffi()["PebView"]->osdialog_file($action->value, $dir, $filename, null) ?? '';
+        $c_filters = self::ffi()["PebView"]->osdialog_filters_parse($filters);
+        return self::ffi()["PebView"]->osdialog_file($action->value, $dir, $filename, $c_filters) ?? '';
     }
 }

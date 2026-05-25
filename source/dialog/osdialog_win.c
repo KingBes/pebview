@@ -5,6 +5,9 @@
 #include <shlobj.h>
 #include "osdialog.h"
 
+#ifdef _MSC_VER
+#define snwprintf _snwprintf
+#endif
 
 extern osdialog_save_callback* osdialog_save_cb;
 extern osdialog_restore_callback* osdialog_restore_cb;
@@ -390,7 +393,7 @@ static char* osdialog_file_impl(osdialog_file_action action, const char* dir, co
 		wchar_t strFile[MAX_PATH] = L"";
 		if (filename) {
 			wchar_t* filenameW = utf8_to_wchar(filename);
-			snwprintf(strFile, MAX_PATH, L"%S", filenameW);
+			snwprintf(strFile, MAX_PATH, L"%s", filenameW);
 			OSDIALOG_FREE(filenameW);
 		}
 		ofn.lpstrFile = strFile;

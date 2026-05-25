@@ -3,11 +3,7 @@
 #include <stdbool.h>
 
 #ifdef _WIN32
-#ifdef BUILDING_DLL
-#define TOAST_API __declspec(dllexport)
-#else
-#define TOAST_API __declspec(dllimport)
-#endif
+#define TOAST_API
 #else
 #define TOAST_API __attribute__((visibility("default")))
 #endif

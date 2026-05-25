@@ -36,6 +36,7 @@ typedef struct osdialog_filters
 	osdialog_filter_patterns *patterns;
 	struct osdialog_filters *next;
 } osdialog_filters;
+osdialog_filters* osdialog_filters_parse(const char* str);
 const char *osdialog_file(int action, const char *dir, const char *filename, const osdialog_filters *filters);
 
 // window

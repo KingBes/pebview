@@ -44,6 +44,7 @@ Dialog::prompt("请输入您的姓名", DialogLevel::Info, "");
   - `string` `$dir` 对话框默认目录
   - `string` `$filename` 对话框默认文件名
   - `FileAction` `$action` 文件操作类型
+  - `string` `$filters` 文件过滤器 默认为空 格式: "显示名:扩展名,扩展名;显示名:扩展名" Images:png,jpg,gif;Text:txt,md
     返回
   - `string` 用户选择的文件路径
 

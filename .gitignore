@@ -9,3 +9,8 @@ source/toast/windows/build
 *.dll
 *.so
 *.dylib
+*.lib
+*.exp
+*.obj
+*.idb
+ext

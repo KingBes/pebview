@@ -1,4 +1,4 @@
-#include "../toast.h"
+#include "toast.h"
 #include "wintoastlib.h"
 #include <string>
 #include <codecvt>

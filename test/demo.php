@@ -5,11 +5,12 @@ require dirname(__DIR__) . "/vendor/autoload.php";
 use Kingbes\PebView\Window; // 引入 Window 类
 use Kingbes\PebView\Dialog; // 引入 Dialog 类
 use Kingbes\PebView\Toast; // 引入 Toast 类
+use Kingbes\PebView\WindowHint; // 引入 WindowHint 枚举类
 
 
 // 创建一个窗口
 $win = new Window();
-$win->setSize(800, 600) // 设置窗口大小
+$win->setSize(800, 600, WindowHint::Min) // 设置窗口大小
     ->setIcon(__DIR__ . "/php.ico") // 设置窗口图标
     ->setTitle("PebView") // 设置窗口标题
     ->setCloseCallback(function ($win) { // 设置窗口关闭事件
