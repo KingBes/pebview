@@ -1,6 +1,6 @@
 # PebView
 
-> 一个跨平台webview 组件 ,它允许在自身原生 GUI 窗口中显示 HTML 内容。它让您可以在桌面应用程序中使用WEB技术，同时隐藏 GUI 依赖浏览器的事实。
+> A cross-platform webview component that displays HTML content in native GUI windows. It lets you use web technologies in desktop applications while hiding the fact that the GUI relies on a browser. / 一个跨平台 webview 组件，允许在原生 GUI 窗口中展示 HTML 内容，让您在桌面应用中使用 WEB 技术，同时隐藏 GUI 依赖浏览器的事实。
 
 [中文文档](./doc/Chinese/Introduction.md)
 [English document](./doc/English/Introduction.md)
