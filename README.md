@@ -8,7 +8,7 @@
 ## 要求
 
 - PHP 8.2 或更高版本
-- PHP-FFI 扩展
+- PHP-FFI 扩展 / pebview ext
 - Composer
 - Windows x86_64 
 - Linux x86_64 或 arrch64
