@@ -69,8 +69,12 @@ build_arch() {
     ls -lh "$out_dylib"
     file "$out_dylib"
 
-    log_info "校验关键符号"
-    nm -gU "$out_dylib" | grep -E '_webview_create|_webview_run|_toastShow|_osdialog_file|_window_tray' | head -8 || true
+    log_info "校验 ABI"
+    if command -v php >/dev/null 2>&1; then
+        php "$current_dir/check-abi.php" --def "$current_dir/exports.def" --lib "$out_dylib"
+    else
+        log_error "未找到 php，跳过 ABI 校验。可手动执行：php source/check-abi.php --def source/exports.def --lib $out_dylib"
+    fi
 }
 
 targets=("$@")

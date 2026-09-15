@@ -46,7 +46,8 @@ notify_cflags=$(pkg-config --cflags libnotify glib-2.0)
 notify_libs=$(pkg-config --libs libnotify glib-2.0)
 
 icon_o="$current_dir/seticon/icon.o"
-dialog_o="$current_dir/dialog/osdialog_gtk.o"
+dialog_common_o="$current_dir/dialog/osdialog.o"
+dialog_gtk_o="$current_dir/dialog/osdialog_gtk.o"
 webview_o="$current_dir/webview/webview.o"
 window_o="$current_dir/window/window_gtk.o"
 toast_o="$current_dir/toast/linux/toast.o"
@@ -62,8 +63,11 @@ cflags="-Wall -Wextra -pedantic -fPIC -O2"
 echo "[INFO] 编译 icon.c..."
 gcc $cflags -c "$current_dir/seticon/icon.c" -o "$icon_o" -I"$icon_i" $gtk_cflags
 
+echo "[INFO] 编译 osdialog.c..."
+gcc $cflags -c "$current_dir/dialog/osdialog.c" -o "$dialog_common_o" -I"$dialog_i" $gtk_cflags
+
 echo "[INFO] 编译 osdialog_gtk.c..."
-gcc $cflags -c "$current_dir/dialog/osdialog_gtk.c" -o "$dialog_o" -I"$dialog_i" $gtk_cflags
+gcc $cflags -c "$current_dir/dialog/osdialog_gtk.c" -o "$dialog_gtk_o" -I"$dialog_i" $gtk_cflags
 
 echo "[INFO] 编译 webview.cc..."
 c++ -DWEBVIEW_STATIC -std=c++11 -fvisibility=default -fvisibility-inlines-hidden \
@@ -78,14 +82,19 @@ gcc $cflags -c "$current_dir/toast/linux/toast.c" -o "$toast_o" -I"$toast_i" $no
 
 echo "[INFO] 链接单个共享库..."
 g++ -shared -o "$out_so" \
-    "$webview_o" "$icon_o" "$dialog_o" "$window_o" "$toast_o" \
+    "$webview_o" "$icon_o" "$dialog_common_o" "$dialog_gtk_o" "$window_o" "$toast_o" \
     $gtk_libs $notify_libs -ldl -lstdc++
 
 echo "[INFO] 产物信息:"
 ls -lh "$out_so"
 file "$out_so"
 
-echo "[INFO] 校验关键符号..."
-nm -gC "$out_so" | grep -E 'webview_create|toastShow|osdialog_file|window_tray'
+echo "[INFO] 校验 ABI..."
+if command -v php >/dev/null 2>&1; then
+    php "$current_dir/check-abi.php" --def "$current_dir/exports.def" --lib "$out_so"
+else
+    echo "[WARN] 未找到 php，跳过 ABI 校验。可手动执行："
+    echo "[WARN]   php source/check-abi.php --def source/exports.def --lib $out_so"
+fi
 
 echo "[OK] 构建 PebView.so 完成"

@@ -15,6 +15,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    # ABI 校验由 source/check-abi.php 完成。构建脚本在找不到 php 时只打 WARN 跳过，
+    # 所以这里显式断言一次：宁可在这一步失败，也不要静默地不做校验。
+    - name: Verify PHP (used for the ABI check)
+      run: php --version
+
     # 不再安装任何依赖：windows-2022 镜像已预装
     #   Visual Studio 2022（含 Microsoft.VisualStudio.Component.VC.Tools.x86.x64）
     #   Windows SDK 10.0.17763 / 19041 / 22621 / 26100
@@ -39,6 +44,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    # ABI 校验由 source/check-abi.php 完成。构建脚本在找不到 php 时只打 WARN 跳过，
+    # 所以这里显式断言一次：宁可在这一步失败，也不要静默地不做校验。
+    - name: Verify PHP (used for the ABI check)
+      run: php --version
 
     - name: Set up build environment
       run: |
@@ -65,6 +75,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    # ABI 校验由 source/check-abi.php 完成。构建脚本在找不到 php 时只打 WARN 跳过，
+    # 所以这里显式断言一次：宁可在这一步失败，也不要静默地不做校验。
+    - name: Verify PHP (used for the ABI check)
+      run: php --version
 
     - name: Set up build environment
       run: |
@@ -93,6 +108,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    # ABI 校验由 source/check-abi.php 完成。构建脚本在找不到 php 时只打 WARN 跳过，
+    # 所以这里显式断言一次：宁可在这一步失败，也不要静默地不做校验。
+    - name: Verify PHP (used for the ABI check)
+      run: php --version
 
     - name: Build PebView.dylib (both arches)
       run: |

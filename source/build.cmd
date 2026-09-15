@@ -103,4 +103,25 @@ if errorlevel 1 (
 
 echo.
 echo [OK] %out_dir%\PebView.dll
+
+@REM ---------- verify the exported ABI ----------
+@REM  Build .def only proves that a listed name exists. The reverse -- a function
+@REM  that is neither exported nor referenced internally -- gets dropped by the
+@REM  linker as dead code, which breaks the PHP side silently. So verify that
+@REM  every name in exports.def is actually present in the built DLL.
+set "php_exe="
+where php >nul 2>nul && set "php_exe=php"
+
+if defined php_exe (
+    !php_exe! "%current_dir%check-abi.php" --def "%current_dir%exports.def" --lib "%out_dir%\PebView.dll"
+    if errorlevel 1 (
+        echo.
+        echo [ERROR] ABI check failed
+        exit /b 1
+    )
+) else (
+    echo [WARN] php not found, ABI check skipped. Run manually:
+    echo [WARN]   php source\check-abi.php --def source\exports.def --lib lib\windows\x86_64\PebView.dll
+)
+
 endlocal
