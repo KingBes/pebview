@@ -15,13 +15,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up build environment
-      run: |
-        # 安装 MSVC 的 C++ 工作负载与 Windows SDK
-        # （不再需要 mingw 与 cmake：Toast 已并入 PebView，且由 MSVC 统一编译）
-        choco install -y visualstudio2022-workload-vctools
-        choco install -y windows-sdk-10
-
+    # 不再安装任何依赖：windows-2022 镜像已预装
+    #   Visual Studio 2022（含 Microsoft.VisualStudio.Component.VC.Tools.x86.x64）
+    #   Windows SDK 10.0.17763 / 19041 / 22621 / 26100
+    # 原步骤里的 windows-sdk-10 在 Chocolatey 社区源中并不存在，会直接 exit 1。
+    # 而 visualstudio2022-workload-vctools 会在已有 Enterprise 之外再装一个 Build Tools 实例，
+    # 反而有让 vswhere -latest 选错实例的风险。
     - name: Build PebView.dll
       shell: cmd
       run: source\build.cmd
