@@ -12,8 +12,8 @@ PebView provides window manipulation features (such as application menus and var
 - PHP-FFI extension
 - Composer
 - Windows x86_64 
-- Linux x86_64 or arm64
-- MacOS x86_64 or arm64(pending)
+- Linux x86_64 or aarch64
+- MacOS x86_64 or arm64
 
 ## Installation
 
@@ -25,6 +25,7 @@ composer require kingbes/pebview
 
  - `use Kingbes\PebView\Window;` Window Class->[View Details](./Window.md)
  - `use Kingbes\PebView\Dialog;` Dialog Class->[View Details](./Dialog.md)
+ - `use Kingbes\PebView\Toast;` Toast Class->[View Details](./Toast.md)
 
 ### Enums
 
@@ -55,12 +56,10 @@ composer require kingbes/pebview
 
 ### Building
 
-For prerequisites, please read [link](https://github.com/webview/webview#prerequisites)
+Each platform produces a single dynamic library: `lib/<os>/<arch>/PebView.{dll,so,dylib}` (window, dialogs and system notifications are all inside it).
 
-```bash
-./source/build.cmd // windows
-
-./source/linux.sh // linux
-
-./source/macos.sh // macos
-```
+| Platform | Command | Prerequisites |
+| --- | --- | --- |
+| Windows | `source\build.cmd` | Visual Studio 2022 (C++ toolset) + Windows SDK |
+| Linux | `./source/linux.sh` | gcc / g++ / pkg-config / gtk+-3.0 / webkit2gtk-4.1 / libnotify |
+| macOS | `./source/macos.sh` | Xcode Command Line Tools (builds x86_64 and arm64 by default) |

@@ -1,190 +1,93 @@
 #!/bin/bash
+set -e
 
-# 优化版 PebView macOS 构建脚本
-# 支持架构检测、通用二进制、完善的错误处理和资源清理
+# 构建 PebView.dylib（窗口 / 对话框 / 通知合并为单个动态库）
+#
+# 默认同时构建 x86_64 与 arm64 两套产物：
+#   - macOS SDK 允许交叉编译，因此在 arm64 机器上也能产出 x86_64，
+#     无需专门的 Intel 机器（GitHub Actions 已不再提供 macOS x86_64 runner）。
+#   - 也可以只构建指定架构：./macos.sh arm64
+#
+# 要求：Xcode Command Line Tools（clang / clang++）
 
-# 设置中文字符支持
-export LANG="zh_CN.UTF-8"
-export LC_ALL="zh_CN.UTF-8"
+current_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# 工具函数定义
-function log_info() {
-    echo "[INFO] $1"
-}
+log_info() { echo "[INFO] $1"; }
+log_error() { echo "[ERROR] $1" >&2; }
 
-function log_error() {
-    echo "[ERROR] $1" >&2
-}
+build_arch() {
+    local arch="$1"
+    local lib_dir="$current_dir/../lib/macos/$arch"
+    local out_dylib="$lib_dir/PebView.dylib"
+    local obj_dir="$current_dir/build/macos/$arch"
 
-function check_dependencies() {
-    # 检查必要的编译工具
-    local tools=('gcc' 'clang++' 'file' 'ls' 'mkdir' 'rm' 'find')
-    local missing=0
-    
-    for tool in "${tools[@]}"; do
-        if ! command -v "$tool" &> /dev/null; then
-            log_error "缺少必要的工具: $tool"
-            missing=1
-        fi
-    done
-    
-    return $missing
-}
-
-function clean_build() {
-    # 清理构建环境
-    log_info "清理构建环境..."
-    find "$current_dir" -type f -name "*.o" -exec rm -f {} \;
-    if [ -f "$pebview_dylib_file" ]; then
-        log_info "删除现有库文件: $pebview_dylib_file"
-        rm -f "$pebview_dylib_file"
-    fi
-}
-
-function build_library() {
-    # 编译单个文件
-    local compiler="$1"
-    local flags="$2"
-    local source="$3"
-    local output="$4"
-    local includes="$5"
-    
-    log_info "编译 $source..."
-    $compiler $flags $includes -c "$source" -o "$output"
-    
-    if [ $? -ne 0 ]; then
-        log_error "编译 $source 失败!"
-        return 1
-    fi
-    
-    return 0
-}
-
-# 主函数
-function main() {
-    # 获取当前执行文件的目录（macOS兼容方式）
-    current_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    
-    # 检查依赖工具
-    if ! check_dependencies; then
-        log_error "请安装缺少的工具后重试"
-        exit 1
-    fi
-    
-    # 判断系统架构
-    arch="$(uname -m)"
-    lib_dir="$current_dir/../lib/macos"
-    
+    # arm64 只在 macOS 11 之后存在，两平台的版本下限分别取 SDK 允许的最低值
+    local min_ver
     case "$arch" in
-        x86_64)
-            # Intel 64位架构
-            pebview_dylib_file="$lib_dir/x86_64/PebView.dylib"
-            toast_dylib_file="$lib_dir/x86_64/Toast.dylib"
-            extra_flags="-arch x86_64"
-            ;;
-        arm64)
-            # Apple Silicon 架构
-            pebview_dylib_file="$lib_dir/arm64/PebView.dylib"
-            toast_dylib_file="$lib_dir/arm64/Toast.dylib"
-            extra_flags="-arch arm64"
+        x86_64) min_ver="10.13" ;;
+        arm64)  min_ver="11.0" ;;
+    esac
+
+    log_info "=== 构建 $arch (min macOS $min_ver) ==="
+    mkdir -p "$lib_dir"
+
+    # 中间产物按架构分目录，避免两套架构互相覆盖
+    rm -rf "$obj_dir"
+    mkdir -p "$obj_dir"
+
+    local common="-arch $arch -Wall -Wextra -pedantic -O3 -mmacosx-version-min=$min_ver"
+    local cflags="$common -std=c99"
+    local cxxflags="$common -DWEBVIEW_STATIC -std=c++11"
+    local objcflags="$common -DWEBVIEW_COCOA"
+    local frameworks="-framework WebKit -framework Cocoa -framework Carbon -framework Foundation -framework AppKit"
+
+    log_info "编译 icon.c / osdialog.c / osdialog_mac.m / window_mac.m"
+    clang   $cflags    -I"$current_dir/seticon" -c "$current_dir/seticon/icon.c" -o "$obj_dir/icon.o"
+    clang   $objcflags -I"$current_dir/dialog"  -c "$current_dir/dialog/osdialog.c" -o "$obj_dir/osdialog.o"
+    clang   $objcflags -I"$current_dir/dialog"  -c "$current_dir/dialog/osdialog_mac.m" -o "$obj_dir/osdialog_mac.o"
+    clang   $objcflags -I"$current_dir/window"  -c "$current_dir/window/window_mac.m" -o "$obj_dir/window_mac.o"
+
+    log_info "编译 webview.cc"
+    c++     $cxxflags  -I"$current_dir/webview" -c "$current_dir/webview/webview.cc" -o "$obj_dir/webview.o"
+
+    log_info "编译 toast.mm"
+    clang++ $objcflags -I"$current_dir/toast"   -c "$current_dir/toast/macos/toast.mm" -o "$obj_dir/toast.o"
+
+    log_info "链接单个动态库"
+    clang++ -arch "$arch" -dynamiclib \
+        -install_name "@rpath/PebView.dylib" \
+        -o "$out_dylib" \
+        "$obj_dir/webview.o" \
+        "$obj_dir/icon.o" \
+        "$obj_dir/osdialog.o" \
+        "$obj_dir/osdialog_mac.o" \
+        "$obj_dir/window_mac.o" \
+        "$obj_dir/toast.o" \
+        $frameworks
+
+    log_info "产物信息"
+    ls -lh "$out_dylib"
+    file "$out_dylib"
+
+    log_info "校验关键符号"
+    nm -gU "$out_dylib" | grep -E '_webview_create|_webview_run|_toastShow|_osdialog_file|_window_tray' | head -8 || true
+}
+
+targets=("$@")
+if [ ${#targets[@]} -eq 0 ]; then
+    targets=(x86_64 arm64)
+fi
+
+for target in "${targets[@]}"; do
+    case "$target" in
+        x86_64 | arm64)
+            build_arch "$target"
             ;;
         *)
-            log_error "不支持的架构: $arch"
+            log_error "不支持的架构: $target（可选 x86_64 / arm64）"
             exit 1
             ;;
     esac
-    
-    # 确保目标目录存在
-    mkdir -p "$(dirname "$pebview_dylib_file")" "$current_dir/seticon" "$current_dir/dialog" "$current_dir/webview" "$current_dir/window"
-    
-    # 清理构建环境
-    clean_build
-    
-    # 统一编译标志
-    COMMON_FLAGS="-Wall -Wextra -pedantic -O3 -mmacosx-version-min=10.10"
-    CFLAGS="$COMMON_FLAGS -std=c99"
-    CXXFLAGS="$COMMON_FLAGS -DWEBVIEW_STATIC -std=c++11"
-    OBJCFLAGS="$COMMON_FLAGS -DWEBVIEW_COCOA"
-    
-    # 链接标志
-    LDFLAGS="-ObjC"
-    
-    # macOS 框架
-    FRAMEWORKS="-framework WebKit -framework Cocoa -framework Carbon"
-    
-    # 定义对象文件和包含路径
-    icon_o="$current_dir/seticon/icon.o"
-    dialog_o="$current_dir/dialog/osdialog_mac.o"
-    dialogc_o="$current_dir/dialog/osdialog.o"
-    webview_o="$current_dir/webview/webview.o"
-    window_o="$current_dir/window/window_mac.o"
-    
-    icon_i="-I$current_dir/seticon"
-    dialog_i="-I$current_dir/dialog"
-    webview_i="-I$current_dir/webview"
-    window_i="-I$current_dir/window"
-    
-    # 编译源文件
-    if ! build_library "gcc" "$extra_flags $CFLAGS" "$current_dir/seticon/icon.c" "$icon_o" "$icon_i"; then
-        exit 1
-    fi
+done
 
-    if ! build_library "clang" "$extra_flags $OBJCFLAGS" "$current_dir/dialog/osdialog.c" "$dialogc_o" "$dialog_i"; then
-        exit 1
-    fi
-
-    if ! build_library "clang" "$extra_flags $OBJCFLAGS" "$current_dir/window/window_mac.m" "$window_o" "$window_i"; then
-        exit 1
-    fi
-
-    if ! build_library "clang" "$extra_flags $OBJCFLAGS" "$current_dir/dialog/osdialog_mac.m" "$dialog_o" "$dialog_i"; then
-        exit 1
-    fi
-    
-    if ! build_library "c++" "$extra_flags $CXXFLAGS" "$current_dir/webview/webview.cc" "$webview_o" "$webview_i"; then
-        exit 1
-    fi
-    
-    # 链接生成动态库
-    log_info "链接动态库..."
-    clang++ $extra_flags -dynamiclib $LDFLAGS -install_name "@rpath/$(basename "$pebview_dylib_file")" -o "$pebview_dylib_file" "$webview_o" "$icon_o" "$dialogc_o" "$dialog_o" "$window_o" $FRAMEWORKS
-    
-    if [ $? -ne 0 ]; then
-        log_error "链接动态库失败!"
-        exit 1
-    fi
-    
-    # 检查最终库文件
-    if [ -f "$pebview_dylib_file" ]; then
-        log_info "生成的动态库信息:"
-        ls -lh "$pebview_dylib_file"
-        file "$pebview_dylib_file"
-        nm -g "$pebview_dylib_file"
-        log_info "构建过程完成!"
-    else
-        log_error "动态库文件未生成!"
-        return 1
-    fi
-
-    g++ -std=c++11 -shared -fPIC -o "$toast_dylib_file" "$current_dir/toast/macos/toast.mm" -framework Foundation -framework AppKit -mmacosx-version-min=10.10
-
-    # 检查最终库文件
-    if [ -f "$toast_dylib_file" ]; then
-        log_info "生成的动态库信息:"
-        ls -lh "$toast_dylib_file"
-        file "$toast_dylib_file"
-        nm -g "$toast_dylib_file"
-        log_info "构建过程完成!"
-    else
-        log_error "动态库文件未生成!"
-        return 1
-    fi
-
-    return 0
-}
-
-# 执行主函数
-main
-
-# 设置脚本执行权限（在首次运行时自动设置）
-chmod +x "$0"
+log_info "构建完成"

@@ -2,11 +2,6 @@
 
 namespace Kingbes\PebView;
 
-// pebview 扩展已加载时，类已在 C 层注册，跳过 PHP FFI 定义
-if (extension_loaded('pebview')) {
-    return;
-}
-
 /**
  * 对话框类 Dialog
  */
@@ -22,7 +17,7 @@ class Dialog extends Base
      */
     public static function msg(string $message, DialogLevel $level = DialogLevel::Info, DialogBtn $buttons = DialogBtn::Ok): bool
     {
-        return self::ffi()["PebView"]->osdialog_message($level->value, $buttons->value, $message) === 1;
+        return self::ffi()->osdialog_message($level->value, $buttons->value, $message) === 1;
     }
 
     /**
@@ -35,7 +30,7 @@ class Dialog extends Base
      */
     public static function prompt(string $message, DialogLevel $level = DialogLevel::Info, string $text = ''): string
     {
-        return self::ffi()["PebView"]->osdialog_prompt($level->value, $message, $text) ?? '';
+        return self::ffi()->osdialog_prompt($level->value, $message, $text) ?? '';
     }
 
     /**
@@ -49,7 +44,7 @@ class Dialog extends Base
      */
     public static function file(string $dir, string $filename, FileAction $action, string $filters = ''): string
     {
-        $c_filters = self::ffi()["PebView"]->osdialog_filters_parse($filters);
-        return self::ffi()["PebView"]->osdialog_file($action->value, $dir, $filename, $c_filters) ?? '';
+        $c_filters = self::ffi()->osdialog_filters_parse($filters);
+        return self::ffi()->osdialog_file($action->value, $dir, $filename, $c_filters) ?? '';
     }
 }

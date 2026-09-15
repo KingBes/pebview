@@ -5,7 +5,8 @@
 vendor
 composer.lock
 .codebuddy
-source/toast/windows/build
+.workbuddy/
+source/build
 *.dll
 *.so
 *.dylib

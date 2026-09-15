@@ -7,8 +7,7 @@
         "php": ">=8.2"
     },
     "suggest": {
-        "ext-ffi": "Required when pebview extension is not installed, for FFI fallback mode / 未安装 pebview 扩展时必需，用于 FFI 回退模式",
-        "ext-pebview": "Recommended for best performance (native C extension) / 推荐安装以获得最佳性能（原生 C 扩展）"
+        "ext-ffi": "Required. PebView loads its native library through FFI / 必需，PebView 通过 FFI 加载原生库"
     },
     "autoload": {
         "psr-4": {

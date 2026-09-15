@@ -2,43 +2,14 @@ name: Build
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   workflow_dispatch:  # 允许手动触发
 
 jobs:
 
-  build-macos-arm64:
-    runs-on: macos-latest
-    name: Build for macOS arm64
-    env:
-      # 设置环境变量以确保脚本正确识别构建环境
-      BUILD_ARCH: arm64
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Build project for arm64
-      run: |
-        # 确保脚本有执行权限
-        chmod +x ./source/macos.sh
-        # 执行构建脚本
-        ./source/macos.sh
-
-    - name: Upload artifact for arm64
-      uses: actions/upload-artifact@v4
-      with:
-        name: macos-arm64
-        path: |
-          ./lib/macos/arm64/*
-        if-no-files-found: error
-  
   build-windows-x86_64:
     runs-on: windows-2022
     name: Build for Windows x86_64
-    env:
-      # 设置环境变量以确保脚本正确识别构建环境
-      BUILD_ARCH: x86_64
 
     steps:
     - name: Checkout code
@@ -46,45 +17,25 @@ jobs:
 
     - name: Set up build environment
       run: |
-        # 使用 Chocolatey 安装 MinGW
-        choco install -y mingw
-        # 将 MinGW 添加到 PATH
-        $env:PATH += ";C:\ProgramData\mingw64\mingw64\bin"
-        # 保存 PATH 以便后续步骤使用
-        echo "C:\ProgramData\mingw64\mingw64\bin" >> $env:GITHUB_PATH
-        # 安装 msvc 和Windows SDK
+        # 安装 MSVC 的 C++ 工作负载与 Windows SDK
+        # （不再需要 mingw 与 cmake：Toast 已并入 PebView，且由 MSVC 统一编译）
         choco install -y visualstudio2022-workload-vctools
         choco install -y windows-sdk-10
-        # 将 Windows SDK 添加到 PATH
-        $env:PATH += ";C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64"
-        # 保存 PATH 以便后续步骤使用
-        echo "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64" >> $env:GITHUB_PATH
-        # 安装 CMake
-        choco install -y cmake
-        # 将 CMake 添加到 PATH
-        $env:PATH += ";C:\Program Files\CMake\bin"
-        # 保存 PATH 以便后续步骤使用
-        echo "C:\Program Files\CMake\bin" >> $env:GITHUB_PATH
 
-    - name: Build project for x86_64
-      run: |
-        # 执行构建脚本
-        ./source/build.cmd
+    - name: Build PebView.dll
+      shell: cmd
+      run: source\build.cmd
 
-    - name: Upload artifact for x86_64
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: windows-x86_64
-        path: |
-          ./lib/windows/*
+        path: ./lib/windows/x86_64/*
         if-no-files-found: error
-  
+
   build-linux-x86_64:
     runs-on: ubuntu-latest
     name: Build for Linux x86_64
-    env:
-      # 设置环境变量以确保脚本正确识别构建环境
-      BUILD_ARCH: x86_64
 
     steps:
     - name: Checkout code
@@ -96,27 +47,21 @@ jobs:
         sudo apt-get install -y build-essential pkg-config
         sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev libnotify-dev libglib2.0-dev
 
-    - name: Build project for x86_64
+    - name: Build PebView.so
       run: |
-        # 确保脚本有执行权限
         chmod +x ./source/linux.sh
-        # 执行构建脚本
         ./source/linux.sh
 
-    - name: Upload artifact for x86_64
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: linux-x86_64
-        path: |
-          ./lib/linux/x86_64/*
+        path: ./lib/linux/x86_64/*
         if-no-files-found: error
 
-  build-linux-arrch64:
+  build-linux-aarch64:
     runs-on: ubuntu-22.04-arm
     name: Build for Linux aarch64
-    env:
-      # 设置环境变量以确保脚本正确识别构建环境
-      BUILD_ARCH: aarch64
 
     steps:
     - name: Checkout code
@@ -128,17 +73,43 @@ jobs:
         sudo apt-get install -y build-essential pkg-config
         sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev libnotify-dev libglib2.0-dev
 
-    - name: Build project for aarch64
+    - name: Build PebView.so
       run: |
-        # 确保脚本有执行权限
         chmod +x ./source/linux.sh
-        # 执行构建脚本
         ./source/linux.sh
 
-    - name: Upload artifact for aarch64
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: linux-aarch64
-        path: |
-          ./lib/linux/aarch64/*
+        path: ./lib/linux/aarch64/*
+        if-no-files-found: error
+
+  # GitHub 已不再提供 macOS x86_64 runner。
+  # macOS SDK 支持交叉编译，因此在 arm64 runner 上一次性产出两套架构。
+  build-macos:
+    runs-on: macos-latest
+    name: Build for macOS x86_64 + arm64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build PebView.dylib (both arches)
+      run: |
+        chmod +x ./source/macos.sh
+        ./source/macos.sh x86_64 arm64
+
+    - name: Upload artifact (x86_64)
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-x86_64
+        path: ./lib/macos/x86_64/*
+        if-no-files-found: error
+
+    - name: Upload artifact (arm64)
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-arm64
+        path: ./lib/macos/arm64/*
         if-no-files-found: error

@@ -1,0 +1,48 @@
+; PebView exported C ABI
+;
+; Must stay in sync with include/PebView.h.
+; A name listed here without a matching symbol fails the link, so this file
+; doubles as a link-time ABI check.
+;
+; Keep this file ASCII-only: link.exe reads .def in the OEM code page, and a
+; non-ASCII byte at the end of a comment line can swallow the newline and pull
+; the following export name into the comment.
+
+LIBRARY PebView
+
+EXPORTS
+    ; webview core (source/webview)
+    webview_create
+    webview_destroy
+    webview_run
+    webview_terminate
+    webview_dispatch
+    webview_get_window
+    webview_get_native_handle
+    webview_set_title
+    webview_set_size
+    webview_navigate
+    webview_set_html
+    webview_init
+    webview_eval
+    webview_bind
+    webview_unbind
+    webview_return
+    webview_set_close_callback
+
+    ; window icon and show/hide/tray (source/seticon, source/window)
+    set_icon
+    window_show
+    window_hide
+    window_tray
+    window_tray_add_menu
+    window_tray_remove
+
+    ; native dialogs (source/dialog)
+    osdialog_message
+    osdialog_prompt
+    osdialog_filters_parse
+    osdialog_file
+
+    ; system notification (source/toast)
+    toastShow

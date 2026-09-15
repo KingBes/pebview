@@ -2,13 +2,12 @@
 
 namespace Kingbes\PebView;
 
-// pebview 扩展已加载时，托盘菜单由 C 扩展原生处理，跳过 FFI 实现
-if (extension_loaded('pebview')) {
-    return;
-}
-
 /**
- * @param \FFI $ffi
+ * 构造并添加托盘菜单项
+ *
+ * @param \FFI $ffi PebView 动态库的 FFI 实例
+ * @param Window $win 窗口对象
+ * @param array $menu 菜单项数组，每项支持 text / disabled / checked / cb
  */
 function trayMenuList($ffi, Window $win, array $menu): void
 {

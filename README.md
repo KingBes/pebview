@@ -8,10 +8,10 @@
 ## 要求
 
 - PHP 8.2 或更高版本
-- PHP-FFI 扩展 / pebview ext
+- PHP-FFI 扩展
 - Composer
 - Windows x86_64 
-- Linux x86_64 或 arrch64
+- Linux x86_64 或 aarch64
 - MacOS x86_64 或 arm64
 
 ## 安装
@@ -45,12 +45,10 @@ HTML)
 
 ### 编译
 
-有关先决条件，请阅读文件
+每个平台只产出一个动态库：`lib/<系统>/<架构>/PebView.{dll,so,dylib}`（窗口、对话框、系统通知都在其中）。
 
-```bash
-./source/build.cmd // windows
-
-./source/linux.sh // linux
-
-./source/macos.sh // macos
-```
+| 平台 | 命令 | 依赖 |
+| --- | --- | --- |
+| Windows | `source\build.cmd` | Visual Studio 2022（C++ 工具集）+ Windows SDK |
+| Linux | `./source/linux.sh` | gcc / g++ / pkg-config / gtk+-3.0 / webkit2gtk-4.1 / libnotify |
+| macOS | `./source/macos.sh` | Xcode Command Line Tools（默认同时产出 x86_64 与 arm64）|

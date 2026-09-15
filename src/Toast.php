@@ -2,11 +2,6 @@
 
 namespace Kingbes\PebView;
 
-// pebview 扩展已加载时，类已在 C 层注册，跳过 PHP FFI 定义
-if (extension_loaded('pebview')) {
-    return;
-}
-
 /**
  *  toast 提示类 Toast
  */
@@ -27,7 +22,7 @@ class Toast extends Base
         string $msg,
         string $icon = ""
     ): bool {
-        return self::ffi()["Toast"]->toastShow(
+        return self::ffi()->toastShow(
             $app,
             $title,
             $msg,
