@@ -109,11 +109,8 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # ABI 校验由 source/check-abi.php 完成。构建脚本在找不到 php 时只打 WARN 跳过，
-    # 所以这里显式断言一次：宁可在这一步失败，也不要静默地不做校验。
-    - name: Verify PHP (used for the ABI check)
-      run: php --version
-
+    # macOS runner 上 php 不在 PATH（实测 `php: command not found`），所以这里不做断言，
+    # macos.sh 内部的校验会打 WARN 跳过；两个架构的 dylib 由末尾的 verify-abi job 兜底校验。
     - name: Build PebView.dylib (both arches)
       run: |
         chmod +x ./source/macos.sh
@@ -132,3 +129,35 @@ jobs:
         name: macos-arm64
         path: ./lib/macos/arm64/*
         if-no-files-found: error
+
+  # 统一校验各平台产物的 ABI。放在 ubuntu 上有两个原因：
+  #   1. ubuntu 自带 php（8.3.x，在 PATH 里），不需要为 macOS runner 额外装 php；
+  #   2. 这里校验的是**上传后的 artifact**，比校验构建目录里的文件更接近真实发布物。
+  # check-abi.php 直接解析 PE / ELF / Mach-O，与宿主机系统无关，所以跨平台校验没问题。
+  verify-abi:
+    runs-on: ubuntu-latest
+    name: Verify exported ABI of every artifact
+    needs: [ build-windows-x86_64, build-linux-x86_64, build-linux-aarch64, build-macos ]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Verify ABI
+      run: |
+        php --version
+        fail=0
+        for target in \
+          windows-x86_64/PebView.dll \
+          linux-x86_64/PebView.so \
+          linux-aarch64/PebView.so \
+          macos-x86_64/PebView.dylib \
+          macos-arm64/PebView.dylib ; do
+          php source/check-abi.php --def source/exports.def --lib "artifacts/$target" || fail=1
+        done
+        exit $fail
