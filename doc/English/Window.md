@@ -9,7 +9,7 @@
 Constructor
  - `new Window` Creates a window object.
     Parameters
-  - `bool` `$debug` Whether to enable debug mode. Default: false
+  - `bool` `$debug` Whether to enable debug mode. Default: true
     Returns
   - `Window` Returns a window object.
 
@@ -220,7 +220,7 @@ $win->bind("hello", function(...$params) {
 ### Unbind JS Function
 
 Public function
- - `unbind` Unbinds a JS function.
+ - `unBind` Unbinds a JS function.
     Parameters
   - `string` `$name` The function name.
     Returns
@@ -228,7 +228,7 @@ Public function
 
 Usage:
 ```PHP
-$win->unbind("hello");
+$win->unBind("hello");
 ```
 
 ### Set Window Close Event
@@ -308,18 +308,23 @@ Public function
 Usage:
 ```PHP
 // Must be called before the run() method.
+// Note: each menu entry is itself an array, so this is an array of arrays.
 $win->trayMenu([
-    "text" => "menu1", // Menu name
-    "disabled" => 0, // Whether clickable 0 clickable
-    "cb" => function($win) { // The function to call when the menu is clicked
-        // $win is the window object
-        // You can perform some operations when the menu is clicked
-    },
-    "text" => "menu2",
-    "cb" => function($win) {
-        // $win is the window object
-        // You can perform some operations when the menu is clicked
-    },
-    ...
+    [
+        "text" => "menu1", // Menu name
+        "disabled" => 0, // 0 clickable, 1 disabled
+        "checked" => 0, // 0 unchecked, 1 checked
+        "cb" => function ($win) { // The function to call when the menu is clicked
+            // $win is the window object
+            // You can perform some operations when the menu is clicked
+        },
+    ],
+    [
+        "text" => "menu2",
+        "cb" => function ($win) {
+            // $win is the window object
+            // You can perform some operations when the menu is clicked
+        },
+    ],
 ]);
 ```

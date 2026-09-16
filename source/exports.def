@@ -42,6 +42,7 @@ EXPORTS
     osdialog_message
     osdialog_prompt
     osdialog_filters_parse
+    osdialog_filters_free
     osdialog_file
 
     ; system notification (source/toast)

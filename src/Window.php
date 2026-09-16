@@ -12,8 +12,11 @@ class Window extends Base
     /** @var \FFI\CData 窗口指针 */
     private mixed $pv;
 
-    /** @var \FFI\CData 托盘指针 */
-    public mixed $tray;
+    /**
+     * @var \FFI\CData|null 托盘指针，未调用 tray() 时为 null
+     *                      （C 侧 window_tray_remove / window_tray_add_menu 都判空）
+     */
+    public mixed $tray = null;
 
     public function __construct(bool $debug = true)
     {
@@ -86,12 +89,21 @@ class Window extends Base
      *
      * @param string $icon 图标路径
      * @return self
+     * @throws \RuntimeException 窗口不存在、图标文件不存在或系统不支持时抛出
      * @example $win->setIcon(图标路径); - windows 要求ico格式 - Linux 要求png格式 - MacOs ico
      */
     public function setIcon(string $icon): self
     {
-        $ptr = self::ffi()->webview_get_window($this->pv);
-        self::ffi()->set_icon($ptr, $icon);
+        $code = self::ffi()->set_icon(self::ffi()->webview_get_window($this->pv), $icon);
+        if ($code !== 0) {
+            // 返回码见 source/seticon/icon.h 的 SetIconErrorCode
+            throw new \RuntimeException(match ($code) {
+                1 => "窗口不存在，无法设置图标: {$icon}",
+                2 => "图标文件不存在: {$icon}",
+                3 => "当前操作系统不支持设置窗口图标",
+                default => "设置窗口图标失败（错误码 {$code}）: {$icon}",
+            });
+        }
         return $this;
     }
 
@@ -190,23 +202,45 @@ class Window extends Base
     public function bind(string $name, callable $callable): self
     {
         $pv = $this->pv;
-        $c_callable = function (string $id, string $req, mixed $arg) use ($callable, $pv) {
-            $params = json_decode($req, true);
-            $value = $callable(...$params);
-            if ($value) {
-                if ((is_object($value) || is_array($value))) {
-                    self::ffi()->webview_return($pv, $id, 0, json_encode($value, 320));
-                } elseif (is_string($value)) {
-                    self::ffi()->webview_return($pv, $id, 0, '"' . $value . '"');
-                } else if (is_bool($value)) {
-                    self::ffi()->webview_return($pv, $id, 0, $value ? 'true' : 'false');
-                } else {
-                    self::ffi()->webview_return($pv, $id, 0, "{$value}");
-                }
-            }
+        $c_callable = function (string $id, string $req, mixed $arg) use ($callable, $pv): void {
+            // 桥函数传的是 JSON.stringify(Array.prototype.slice.call(arguments))，
+            // 正常情况恒为 JSON 数组；兜一层避免畸形输入直接抛 TypeError
+            $params = json_decode($req, true) ?? [];
+            [$status, $result] = self::encodeResult($callable(...$params));
+            self::ffi()->webview_return($pv, $id, $status, $result);
         };
         self::ffi()->webview_bind($this->pv, $name, $c_callable, null);
         return $this;
+    }
+
+    /**
+     * 把 PHP 回调的返回值编码成 webview 需要的 (status, result)
+     *
+     * webview 的 JS 桥对任何非 undefined 的 result 都会做 JSON.parse（见 webview.h 的
+     * onReply）：status=0 时用它 resolve，status!=0 时同样解析后用于 reject。
+     * 所以 result 必须是合法 JSON —— 手工拼引号会让含引号 / 反斜杠 / 换行的字符串
+     * 在 JS 侧变成 "Failed to parse binding result as JSON" 的 reject。
+     *
+     * 另外我原来的写法用 if ($value) 做守卫，return null / false / 0 / '' / []
+     * 时根本不会调用 webview_return，JS 侧的 promise 会永久挂起。这里改成总是回传。
+     *
+     * 注意 json_encode() 对 INF / NAN / 非法 UTF-8 返回 false，而 PHP 会把 false 转成
+     * 空字符串；空串在 webview 里表示 undefined，会变成静默的 resolve(undefined)。
+     * 所以这里显式转成 status=1，让 JS 侧走 reject 而不是拿到一个安静的错误值。
+     *
+     * @param mixed $value 回调返回值
+     * @return array{0: int, 1: string} [status, JSON 字符串]
+     */
+    private static function encodeResult(mixed $value): array
+    {
+        $json = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($json === false) {
+            return [1, json_encode([
+                'error' => 'PHP callback result is not JSON encodable',
+                'type' => get_debug_type($value),
+            ])];
+        }
+        return [0, $json];
     }
 
     /**

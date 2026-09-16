@@ -44,7 +44,11 @@ class Dialog extends Base
      */
     public static function file(string $dir, string $filename, FileAction $action, string $filters = ''): string
     {
-        $c_filters = self::ffi()->osdialog_filters_parse($filters);
-        return self::ffi()->osdialog_file($action->value, $dir, $filename, $c_filters) ?? '';
+        $ffi = self::ffi();
+        $c_filters = $ffi->osdialog_filters_parse($filters);
+        $path = $ffi->osdialog_file($action->value, $dir, $filename, $c_filters);
+        // filters 由 osdialog_filters_parse 分配，必须在用完后归还（该函数判空，传 null 安全）
+        $ffi->osdialog_filters_free($c_filters);
+        return $path ?? '';
     }
 }

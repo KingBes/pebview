@@ -6,23 +6,45 @@ use Kingbes\PebView\Window;
 
 class PebView
 {
+    /** 等待 webman 的 HTTP 服务就绪的最长秒数 */
+    private const READY_TIMEOUT = 30;
+
+    /**
+     * 取出 webman 的监听地址，并换成可用作客户端连接的形式
+     *
+     * @return string 例如 http://127.0.0.1:8787
+     * @throws \RuntimeException 配置缺失或不是非空字符串时抛出
+     */
     private function getNaviget(): string
     {
-        $webman = config("process.webman.listen");
-        // 将字符串 0.0.0.0 替换为 127.0.0.1
-        $webman = str_replace('0.0.0.0', '127.0.0.1', $webman);
-        return $webman;
+        $listen = config("process.webman.listen");
+        if (!is_string($listen) || $listen === '') {
+            throw new \RuntimeException(
+                'PebView 进程取不到 webman 的监听地址（config("process.webman.listen")），'
+                . '请确认 webman 进程名与配置路径一致。'
+            );
+        }
+        // 0.0.0.0 不能作为客户端连接地址，换成 127.0.0.1
+        return str_replace('0.0.0.0', '127.0.0.1', $listen);
     }
 
     public function onWorkerStart()
     {
         // 定义状态文件路径
         $status_file = runtime_path() . DIRECTORY_SEPARATOR . '/windows/status_file';
-        // 判断链接是否可访问
+
+        // 等 webman 的 HTTP 服务就绪后再开窗，避免窗口加载到一个还没起来的服务。
+        // 必须带超时：地址写错时原来的 while(1) 会静默死循环，既不报错也没有日志。
         $naviget = $this->getNaviget();
-        while (1) {
+        $deadline = time() + self::READY_TIMEOUT;
+        while (true) {
             if (@fopen($naviget, 'r')) {
                 break;
+            }
+            if (time() >= $deadline) {
+                throw new \RuntimeException(
+                    "等待 {$naviget} 就绪超时（" . self::READY_TIMEOUT . ' 秒），PebView 窗口未启动。'
+                );
             }
             sleep(1);
         }

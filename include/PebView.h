@@ -67,6 +67,7 @@ typedef struct osdialog_filters
 int osdialog_message(int level, int buttons, const char *message);
 const char *osdialog_prompt(int level, const char *message, const char *text);
 osdialog_filters* osdialog_filters_parse(const char* str);
+void osdialog_filters_free(osdialog_filters *filters);
 const char *osdialog_file(int action, const char *dir, const char *filename, const osdialog_filters *filters);
 
 // ---------------------------------------------------------------------------

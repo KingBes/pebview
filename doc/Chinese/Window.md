@@ -9,7 +9,7 @@
 构造函数
  - `new Window` 创建一个窗口对象。
     参数
-  - `bool` `$debug` 是否开启debug模式 默认：false
+  - `bool` `$debug` 是否开启debug模式 默认：true
     返回
   - `Window` 返回一个窗口对象
 
@@ -220,7 +220,7 @@ $win->bind("hello", function(...$params) {
 ### 解绑js函数
 
 公共函数
- - `unbind` 解绑js函数
+ - `unBind` 解绑js函数
     参数
   - `string` `$name` 函数名称
     返回
@@ -228,7 +228,7 @@ $win->bind("hello", function(...$params) {
 
 用法：
 ```PHP
-$win->unbind("hello");
+$win->unBind("hello");
 ```
 
 ### 设置窗口关闭事件
@@ -307,18 +307,23 @@ $win->tray("path/to/icon.ico");
 用法：
 ```PHP
 // 必须在 run() 方法之前调用
+// 注意：每个菜单项本身是一个数组，整体是"数组的数组"
 $win->trayMenu([
-    "text" => "menu1", // 菜单名称
-    "disabled" => 0, // 是否可点击 0可点击
-    "cb" => function($win) { // 点击菜单时调用的函数
-        // $win 是窗口对象
-        // 可以在点击菜单时执行一些操作
-    },
-    "text" => "menu2",
-    "cb" => function($win) {
-        // $win 是窗口对象
-        // 可以在点击菜单时执行一些操作
-    },
-    ...
+    [
+        "text" => "menu1", // 菜单名称
+        "disabled" => 0, // 0 可点击，1 禁用
+        "checked" => 0, // 0 未勾选，1 勾选
+        "cb" => function ($win) { // 点击菜单时调用的函数
+            // $win 是窗口对象
+            // 可以在点击菜单时执行一些操作
+        },
+    ],
+    [
+        "text" => "menu2",
+        "cb" => function ($win) {
+            // $win 是窗口对象
+            // 可以在点击菜单时执行一些操作
+        },
+    ],
 ]);
 ```
