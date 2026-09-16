@@ -19,3 +19,4 @@ source/build
 !lib/**/*.so
 !lib/**/*.dylib
 !lib/**/*.lib
+*.log

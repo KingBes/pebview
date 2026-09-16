@@ -37,6 +37,14 @@ EXPORTS
     window_tray
     window_tray_add_menu
     window_tray_remove
+    window_set_titlebar_theme
+    window_set_titlebar_geometry
+    window_minimize
+    window_toggle_maximize
+    window_is_maximized
+    window_set_state_callback
+    window_begin_move_drag
+    window_begin_resize_drag
 
     ; native dialogs (source/dialog)
     osdialog_message

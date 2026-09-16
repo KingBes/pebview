@@ -93,7 +93,7 @@ cl /nologo /utf-8 /O2 /MT /EHsc /LD /D_CRT_SECURE_NO_WARNINGS /DWEBVIEW_STATIC ^
   /Fe:"%out_dir%\PebView.dll" ^
   /link /DEF:"%current_dir%exports.def" /IMPLIB:"%build_dir%\PebView.lib" ^
   ole32.lib shell32.lib shlwapi.lib user32.lib advapi32.lib version.lib ^
-  comdlg32.lib propsys.lib psapi.lib windowsapp.lib
+  comdlg32.lib propsys.lib psapi.lib windowsapp.lib dwmapi.lib
 
 if errorlevel 1 (
     echo.

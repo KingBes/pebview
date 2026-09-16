@@ -3817,6 +3817,52 @@ private:
   std::wstring m_code;
 };
 
+// PebView fork 追加：让网页面能用 app-region: drag|nodrag 来拖动窗口。
+//
+// 背景：WebView2 把网页内容放在铺满客户区的子窗口里，鼠标事件被子窗口认领，
+// 宿主窗口的 WM_NCHITTEST 根本不会被问到 —— 所以"自己画标题栏还能拖"必须由
+// Chromium 自己处理命中测试。WebView2 为此提供了 msWebView2EnableDraggableRegions
+// 特性开关：打开后带 app-region: drag 的元素表现得像标题栏（双击最大化、Aero 贴边
+// 一并生效），app-region: no-drag 的元素照旧收点击。
+//
+// 为什么走环境变量而不是 options：下面创建 environment 时传的 options 是 nullptr，
+// 而 WebView2 只在 options 为空时才读 WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS。
+// 这个开关对没用 app-region 的页面完全无副作用，所以这里无条件补齐；
+// 若调用方自己设过这个变量，只把 feature 并进已有的 --enable-features 列表，不覆盖。
+static void pebview_ensure_draggable_regions() {
+  static const wchar_t kName[] = L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS";
+  static const wchar_t kSwitch[] = L"--enable-features=";
+  static const wchar_t kFeature[] = L"msWebView2EnableDraggableRegions";
+
+  std::wstring value;
+  wchar_t buf[4096];
+  DWORD len = ::GetEnvironmentVariableW(kName, buf, 4096);
+  if (len > 0 && len < 4096) {
+    value.assign(buf, len);
+  }
+  if (value.find(kFeature) != std::wstring::npos) {
+    return;
+  }
+
+  const std::wstring sw{kSwitch};
+  size_t pos = value.find(sw);
+  if (pos == std::wstring::npos) {
+    if (!value.empty()) {
+      value += L' ';
+    }
+    value += sw + kFeature;
+  } else {
+    // 已经有 --enable-features=xxx 了，把我们的名字并到那个列表末尾
+    size_t list_start = pos + sw.size();
+    size_t list_end = value.find(L' ', list_start);
+    if (list_end == std::wstring::npos) {
+      list_end = value.size();
+    }
+    value.insert(list_end, std::wstring(L",") + kFeature);
+  }
+  ::SetEnvironmentVariableW(kName, value.c_str());
+}
+
 class win32_edge_engine : public engine_base {
 public:
   win32_edge_engine(bool debug, void *window) : m_owns_window{!window} {
@@ -4256,6 +4302,8 @@ private:
         });
 
     m_com_handler->set_attempt_handler([&] {
+      // 必须在创建 environment 之前补上，后面再设就来不及了
+      pebview_ensure_draggable_regions();
       return m_webview2_loader.create_environment_with_options(
           nullptr, userDataFolder, nullptr, m_com_handler);
     });
