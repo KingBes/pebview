@@ -187,6 +187,123 @@ void window_tray_remove(void *tray)
 }
 
 // ---------------------------------------------------------------------------
+// 窗口透明背景（窗口层）
+// ---------------------------------------------------------------------------
+//
+// GTK3 的窗口透明有两个硬前提：
+//   1. 桌面有合成器（gdk_screen_is_composited）—— 没有合成器就没有 alpha 通道；
+//   2. rgba visual 必须在窗口 realize（首次显示）之前挂上 —— realize 之后
+//      set_visual 不再生效。PebView 的窗口在 run() 时才显示，所以正常用法是
+//      在 run() 之前调用；realize 之后调用如实返回 3，不静默无效。
+//
+// 关闭时只撤 app_paintable（视觉上恢复不透明）；visual 保持 rgba 无副作用
+//（opaque 绘制 = 不透明窗口），因为 realize 后已无法换回 system visual。
+int window_set_transparent(const void *ptr, int enable)
+{
+    if (!ptr)
+    {
+        return 1; // WINDOW_NOT_FOUND
+    }
+
+    GtkWidget *widget = (GtkWidget *)ptr;
+    if (!GTK_IS_WINDOW(widget))
+    {
+        return 1;
+    }
+
+    if (!enable)
+    {
+        gtk_window_set_app_paintable(GTK_WINDOW(widget), FALSE);
+        return 0; // OK
+    }
+
+    if (gtk_widget_get_realized(widget))
+    {
+        return 3; // OS_UNSUPPORTED：realize 之后挂不上 rgba visual
+    }
+
+    GdkScreen *screen = gtk_widget_get_screen(widget);
+    if (!screen || !gdk_screen_is_composited(screen))
+    {
+        return 3; // OS_UNSUPPORTED：当前桌面没有合成器
+    }
+
+    GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
+    if (!visual)
+    {
+        return 3; // OS_UNSUPPORTED
+    }
+
+    gtk_widget_set_visual(widget, visual);
+    gtk_window_set_app_paintable(GTK_WINDOW(widget), TRUE);
+    return 0; // OK
+}
+
+// 窗口置顶：GTK 的 keep_above 由窗口管理器解释（部分 WM / Wayland 可能忽略，
+// 属环境能力差异；接口层面如实尽力而为）。
+int window_set_always_on_top(const void *ptr, int enable)
+{
+    if (!ptr)
+    {
+        return 1; // WINDOW_NOT_FOUND
+    }
+    GtkWidget *widget = (GtkWidget *)ptr;
+    if (!GTK_IS_WINDOW(widget))
+    {
+        return 1;
+    }
+    gtk_window_set_keep_above(GTK_WINDOW(widget), enable ? TRUE : FALSE);
+    return 0; // OK
+}
+
+// 窗口定位：把窗口左上角移动到屏幕坐标 (x, y)。
+int window_set_position(const void *ptr, int x, int y)
+{
+    if (!ptr)
+    {
+        return 1; // WINDOW_NOT_FOUND
+    }
+    GtkWidget *widget = (GtkWidget *)ptr;
+    if (!GTK_IS_WINDOW(widget))
+    {
+        return 1;
+    }
+    gtk_window_move(GTK_WINDOW(widget), x, y);
+    return 0; // OK
+}
+
+// 整窗点击穿透：空 input shape = 不接收任何指针事件（事件落到下层窗口）。
+// ⚠️ input shape 只能对已 realize 的窗口设置 —— GTK 上窗口在 run() 时才
+// realize，所以必须在 run() 之后调用；提前调用如实返回 3，不静默无效。
+int window_set_click_through(const void *ptr, int enable)
+{
+    if (!ptr)
+    {
+        return 1; // WINDOW_NOT_FOUND
+    }
+    GtkWidget *widget = (GtkWidget *)ptr;
+    if (!GTK_IS_WINDOW(widget))
+    {
+        return 1;
+    }
+    if (!gtk_widget_get_realized(widget))
+    {
+        return 3; // OS_UNSUPPORTED：需在 run() 之后（窗口显示后）调用
+    }
+    if (enable)
+    {
+        cairo_region_t *empty = cairo_region_create();
+        gtk_widget_input_shape_combine_region(widget, empty);
+        cairo_region_destroy(empty);
+    }
+    else
+    {
+        gtk_widget_input_shape_combine_region(widget, NULL); // NULL = 恢复默认
+    }
+    return 0; // OK
+}
+
+// ---------------------------------------------------------------------------
 // 标题栏外观
 // ---------------------------------------------------------------------------
 

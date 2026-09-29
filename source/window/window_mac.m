@@ -173,6 +173,74 @@ void window_tray_remove(void *tray)
 }
 
 // ---------------------------------------------------------------------------
+// 窗口透明背景（窗口层）
+// ---------------------------------------------------------------------------
+//
+// NSWindow.opaque = NO 告诉 AppKit 窗口内容允许带 alpha，
+// 是 macOS 侧"窗口透明"的第一步（页面背景透明还需 webview 侧配合，
+// 由渲染层输出透明像素决定，本函数只负责窗口侧）。
+// enable=0 恢复默认的不透明窗口。
+int window_set_transparent(const void *ptr, int enable)
+{
+    if (!ptr)
+    {
+        return 1; // WINDOW_NOT_FOUND
+    }
+
+    NSWindow *window = (NSWindow *)ptr;
+    [window setOpaque:(enable ? NO : YES)];
+    return 0; // OK
+}
+
+// 窗口置顶：NSFloatingWindowLevel（浮动层）/ NSNormalWindowLevel（普通层）。
+int window_set_always_on_top(const void *ptr, int enable)
+{
+    if (!ptr)
+    {
+        return 1; // WINDOW_NOT_FOUND
+    }
+    NSWindow *window = (NSWindow *)ptr;
+    [window setLevel:(enable ? NSFloatingWindowLevel : NSNormalWindowLevel)];
+    return 0; // OK
+}
+
+// 窗口定位：AppKit 的 frame origin 原点在主屏左下角、y 向上，
+// 而对外约定是"屏幕左上角为原点、y 向下"，这里按主屏高度换算。
+// ⚠️ 多显示器且目标在副屏时该换算存在偏差（文档已标注为已知限制）。
+int window_set_position(const void *ptr, int x, int y)
+{
+    if (!ptr)
+    {
+        return 1; // WINDOW_NOT_FOUND
+    }
+    NSScreen *screen = [NSScreen mainScreen];
+    if (!screen)
+    {
+        return 3; // OS_UNSUPPORTED：取不到主屏（无显示环境）
+    }
+    NSWindow *window = (NSWindow *)ptr;
+    NSRect frame = [window frame];
+    frame.origin.x = (CGFloat)x;
+    frame.origin.y = [screen frame].size.height - (CGFloat)y - frame.size.height;
+    [window setFrameOrigin:frame.origin];
+    return 0; // OK
+}
+
+// 整窗点击穿透：NSWindow 的 ignoresMouseEvents 让所有指针事件落到下层。
+// ⚠️ 本机没有 macOS 环境，这段只做了语法层面的实现，未在真机验证过
+//    （与本文件 begin_move_drag 的标注一致）。
+int window_set_click_through(const void *ptr, int enable)
+{
+    if (!ptr)
+    {
+        return 1; // WINDOW_NOT_FOUND
+    }
+    NSWindow *window = (NSWindow *)ptr;
+    [window setIgnoresMouseEvents:(enable ? YES : NO)];
+    return 0; // OK
+}
+
+// ---------------------------------------------------------------------------
 // 标题栏外观
 // ---------------------------------------------------------------------------
 

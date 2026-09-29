@@ -138,6 +138,106 @@ $win->setTitlebarTheme(dark: true, caption: "#1F2430", text: "#FFD166");
 
 颜色格式非法会抛 `InvalidArgumentException`；窗口不存在或当前平台不支持该组合会抛 `RuntimeException`。
 
+### 窗口透明背景
+
+打开 / 关闭**窗口层 + 渲染层**的逐像素透明。开启后页面未绘制的区域会透出桌面（或窗口后面的窗口），页面里正常绘制的内容（文字、图片、按钮）照常显示。
+
+各平台：
+
+| 平台 | 支持情况 |
+| --- | --- |
+| Windows | 支持，随时可调 |
+| macOS | 支持，随时可调 |
+| Linux | 需要桌面合成器，且**必须在 `run()` 之前调用**（GTK 的 rgba visual 只能在窗口显示前挂上）；不满足时抛异常 |
+
+公共函数
+ - `setTransparent` 设置窗口透明背景
+    参数
+  - `bool` `$enable` true 开启透明，false 关闭、回到不透明（默认 true）
+    返回
+  - `Window` 返回窗口对象
+
+页面侧配合（必须）：`html` 与 `body` 的背景都要是透明的，否则页面自己的不透明背景会盖住透明效果：
+
+```PHP
+$win->setTransparent(true); // Linux 必须在 run() 之前调用；Windows / macOS 随时可调
+$win->setHtml(<<<'HTML'
+<html style="background: transparent">
+<body style="background: transparent">内容…</body>
+</html>
+HTML);
+$win->run();
+```
+
+窗口不存在或当前平台不支持时抛 `RuntimeException`，不会静默无效。
+
+### 窗口置顶
+
+进入 / 退出系统置顶层（总在其它窗口之上），位置、大小、激活状态都不变。
+
+公共函数
+ - `setAlwaysOnTop` 设置窗口置顶
+    参数
+  - `bool` `$enable` true 进入置顶层，false 回到普通 Z 层（默认 true）
+    返回
+  - `Window` 返回窗口对象
+
+用法：
+```PHP
+$win->setAlwaysOnTop(true);  // 置顶
+$win->setAlwaysOnTop(false); // 取消置顶
+```
+
+窗口不存在时抛 `RuntimeException`。少数窗口管理器（如部分 Wayland 环境）可能忽略置顶请求，属环境能力限制。
+
+### 窗口定位
+
+把窗口左上角移动到屏幕坐标 `(x, y)`，尺寸不变。
+
+坐标语义：Windows / Linux 使用系统屏幕坐标（左上角为原点、y 向下）；macOS 内部按主屏坐标系换算，**多显示器且窗口位于副屏时可能存在偏差**（已知限制）。
+
+公共函数
+ - `setPosition` 设置窗口位置
+    参数
+  - `int` `$x` 屏幕坐标 X（窗口左上角）
+  - `int` `$y` 屏幕坐标 Y（窗口左上角）
+    返回
+  - `Window` 返回窗口对象
+
+用法：
+```PHP
+$win->setPosition(100, 100); // 窗口左上角移到 (100, 100)
+```
+
+窗口不存在时抛 `RuntimeException`。
+
+### 整窗点击穿透
+
+开启后**整个窗口**不再接收鼠标事件（点击、悬停都落到下层窗口），关闭后恢复交互。与 `setTransparent` 相互独立，两者可任意组合。
+
+各平台：
+
+| 平台 | 支持情况 |
+| --- | --- |
+| Windows | 支持，随时可调 |
+| macOS | 支持，随时可调 |
+| Linux | **必须在窗口显示（`run()`）之后调用** —— GTK 只能对已显示的窗口设置命中区域；提前调用抛异常 |
+
+公共函数
+ - `setClickThrough` 设置整窗点击穿透
+    参数
+  - `bool` `$enable` true 开启穿透，false 关闭（默认 true）
+    返回
+  - `Window` 返回窗口对象
+
+用法：
+```PHP
+$win->setClickThrough(true); // 窗口对鼠标透明（悬浮挂件常用搭配：先 setAlwaysOnTop(true)）
+$win->setClickThrough(false);
+```
+
+窗口不存在或平台 / 时机不支持时抛 `RuntimeException`，不会静默无效。
+
 ### 自定义标题栏（真正无边框 + JS 驱动缩放）
 
 **这一节和上一节是两回事**：上一节只改标题栏的**颜色 / 深浅**，标题栏本身还是系统画的；

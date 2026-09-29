@@ -149,6 +149,132 @@ class Window extends Base
     }
 
     /**
+     * 窗口透明背景（窗口层 + webview 渲染层）
+     *
+     * 两层一起开：窗口层进入逐像素合成（各平台配方不同），渲染层把默认背景
+     * alpha 设 0 —— 页面未绘制区域输出透明像素，配 CSS 背景透明即可透出桌面。
+     *
+     * 各平台：
+     *   - Windows：WS_EX_LAYERED + DWM 边框扩展 + WebView2 默认背景 alpha=0，
+     *              随时可调；运行时过老（无 ICoreWebView2Controller2）抛异常
+     *   - macOS  ：NSWindow.opaque=NO + WKWebView drawsBackground=NO（KVC），
+     *              随时可调
+     *   - Linux  ：需要桌面合成器，且必须在 run() 之前调用 —— GTK 的 rgba
+     *              visual 只能在窗口 realize（首次显示）之前挂上，
+     *              之后调用返回不支持而不是静默无效
+     *
+     * @param bool $enable true=开启透明，false=关闭、回到不透明
+     * @return self
+     * @throws \RuntimeException 窗口不存在、运行时缺能力或当前平台不支持时抛出
+     * @example $win->setTransparent(true); // 在 run() 之前调用（Linux 必须）
+     */
+    public function setTransparent(bool $enable = true): self
+    {
+        $ffi = self::ffi();
+        $flag = $enable ? 1 : 0;
+
+        $code = $ffi->window_set_transparent($ffi->webview_get_window($this->pv), $flag);
+        if ($code !== 0) {
+            throw new \RuntimeException(match ($code) {
+                1 => '窗口不存在，无法设置透明背景',
+                3 => '当前平台不支持窗口透明（Linux 需要桌面合成器，且必须在 run() 之前调用）',
+                default => "设置透明背景失败（错误码 {$code}）",
+            });
+        }
+
+        $code = $ffi->webview_set_transparent($this->pv, $flag);
+        if ($code !== 0) {
+            throw new \RuntimeException(match ($code) {
+                -3 => 'webview 状态无效，无法设置渲染层透明',
+                -5 => '当前 WebView 运行时缺透明背景能力（Windows 需要较新的 WebView2 Runtime）',
+                default => "设置渲染层透明失败（错误码 {$code}）",
+            });
+        }
+        return $this;
+    }
+
+    /**
+     * 窗口置顶
+     *
+     * 进入 / 退出置顶层，窗口位置、大小、激活状态都不变。
+     *
+     * @param bool $enable true 进入置顶层，false 回到普通 Z 层（默认 true）
+     * @return self
+     * @throws \RuntimeException 窗口不存在时抛出
+     * @example $win->setAlwaysOnTop(true);
+     */
+    public function setAlwaysOnTop(bool $enable = true): self
+    {
+        $code = self::ffi()->window_set_always_on_top(
+            self::ffi()->webview_get_window($this->pv),
+            $enable ? 1 : 0
+        );
+        if ($code !== 0) {
+            throw new \RuntimeException('窗口不存在，无法设置窗口置顶');
+        }
+        return $this;
+    }
+
+    /**
+     * 窗口定位
+     *
+     * 把窗口左上角移动到屏幕坐标 (x, y)，尺寸不变。
+     *
+     * 坐标语义：Windows / Linux 为系统屏幕坐标；macOS 内部按主屏坐标系换算，
+     * 多显示器且窗口位于副屏时可能存在偏差（已知限制，见文档）。
+     *
+     * @param int $x 屏幕坐标 X（窗口左上角）
+     * @param int $y 屏幕坐标 Y（窗口左上角）
+     * @return self
+     * @throws \RuntimeException 窗口不存在时抛出
+     * @example $win->setPosition(100, 100);
+     */
+    public function setPosition(int $x, int $y): self
+    {
+        $code = self::ffi()->window_set_position(
+            self::ffi()->webview_get_window($this->pv),
+            $x,
+            $y
+        );
+        if ($code !== 0) {
+            throw new \RuntimeException('窗口不存在，无法设置窗口位置');
+        }
+        return $this;
+    }
+
+    /**
+     * 整窗点击穿透
+     *
+     * 开启后整个窗口不再接收鼠标事件（事件落到下层窗口），关闭后恢复。
+     * 与 setTransparent 相互独立：两者各自翻转自己的标志位、互不影响。
+     *
+     * 各平台：
+     *   - Windows / macOS：随时可调
+     *   - Linux：必须在窗口显示（run()）之后调用 —— GTK 的 input shape
+     *     只能对已 realize 的窗口设置，提前调用抛异常而不是静默无效
+     *
+     * @param bool $enable true 开启穿透，false 关闭（默认 true）
+     * @return self
+     * @throws \RuntimeException 窗口不存在或平台 / 时机不支持时抛出
+     * @example $win->setClickThrough(true);
+     */
+    public function setClickThrough(bool $enable = true): self
+    {
+        $code = self::ffi()->window_set_click_through(
+            self::ffi()->webview_get_window($this->pv),
+            $enable ? 1 : 0
+        );
+        if ($code !== 0) {
+            throw new \RuntimeException(match ($code) {
+                1 => '窗口不存在，无法设置点击穿透',
+                3 => '当前平台或时机不支持点击穿透（Linux 需在 run() 窗口显示之后调用）',
+                default => "设置点击穿透失败（错误码 {$code}）",
+            });
+        }
+        return $this;
+    }
+
+    /**
      * 启用自定义标题栏（真正无边框 + JS 驱动缩放）
      *
      * 注意这**不是**改颜色（那是 setTitlebarTheme），而是把标题栏让出来给你自己画：

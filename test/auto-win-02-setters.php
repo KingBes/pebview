@@ -65,6 +65,37 @@ $T->check('show / hide 返回 self', function () use ($T, $win) {
     $T->assertSame($win, $win->hide());
 });
 
+$T->check('setTransparent(true/false) 返回 self 或按契约抛"不支持"', function () use ($T, $win) {
+    // Linux 无合成器 / realize 后调用会抛"不支持"（返回码 3）——
+    // 这也是有效契约：绝不能静默无效。其它情况必须链式返回 self。
+    try {
+        $T->assertSame($win, $win->setTransparent(true));
+        $T->assertSame($win, $win->setTransparent(false));
+    } catch (\RuntimeException $e) {
+        if (!str_contains($e->getMessage(), '不支持')) {
+            throw $e;
+        }
+        $T->assertSame(true, true, '本平台不支持透明，按契约抛 RuntimeException（非静默）');
+    }
+});
+
+$T->check('setAlwaysOnTop/setPosition/setClickThrough 返回 self 或按契约抛"不支持"', function () use ($T, $win) {
+    // Linux 穿透需在窗口显示（run()）后调用，realize 前会抛"不支持" ——
+    // 这也是有效契约：绝不能静默无效。其它情况必须链式返回 self。
+    try {
+        $T->assertSame($win, $win->setAlwaysOnTop(true));
+        $T->assertSame($win, $win->setAlwaysOnTop(false));
+        $T->assertSame($win, $win->setPosition(40, 40));
+        $T->assertSame($win, $win->setClickThrough(true));
+        $T->assertSame($win, $win->setClickThrough(false));
+    } catch (\RuntimeException $e) {
+        if (!str_contains($e->getMessage(), '不支持')) {
+            throw $e;
+        }
+        $T->assertSame(true, true, '本平台不支持（或时机不对），按契约抛 RuntimeException');
+    }
+});
+
 $T->check('destroy 返回 void 且不抛', function () use ($T) {
     $solo = new Window(false);
     $solo->hide();

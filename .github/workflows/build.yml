@@ -7,6 +7,28 @@ on:
 
 jobs:
 
+  # 纯逻辑测试组（test/auto.php）：不创建窗口、无显示环境依赖，几秒跑完。
+  # 构建验证产物，这里验证 PHP 侧行为不回归；失败则整个 workflow 失败。
+  php-tests:
+    runs-on: ubuntu-latest
+    name: PHP logic tests
+    needs: [ build-linux-x86_64 ]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 测试通过 FFI 按头文件加载动态库 —— 必须用刚构建的新产物覆盖仓库里的
+    # 预编译版本，否则新增的 ABI 符号会让 FFI 契约测试在解析阶段直接失败。
+    - name: Download freshly built Linux library
+      uses: actions/download-artifact@v4
+      with:
+        name: linux-x86_64
+        path: lib/linux/x86_64
+
+    - name: Run logic test suite
+      run: php -d extension=ffi -d ffi.enable=1 test/auto.php
+
   build-windows-x86_64:
     runs-on: windows-2022
     name: Build for Windows x86_64

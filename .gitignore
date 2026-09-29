@@ -20,3 +20,4 @@ source/build
 !lib/**/*.dylib
 !lib/**/*.lib
 *.log
+.webview2-profile/

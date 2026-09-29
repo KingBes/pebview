@@ -44,6 +44,7 @@ php -d extension=ffi -d ffi.enable=1 test/demo-dialog.php
 php -d extension=ffi -d ffi.enable=1 test/demo-toast.php
 php -d extension=ffi -d ffi.enable=1 test/demo-tray.php
 php -d extension=ffi -d ffi.enable=1 test/demo-titlebar.php
+php -d extension=ffi -d ffi.enable=1 test/demo-transparent.php
 php -d extension=ffi -d ffi.enable=1 test/demo-run-loop.php
 ```
 
@@ -54,13 +55,13 @@ php -d extension=ffi -d ffi.enable=1 test/demo-run-loop.php
 | 文件 | 覆盖内容 |
 | --- | --- |
 | `auto-01-enums.php` | 4 个枚举的全部取值（直接透传给 C ABI，错一位整条链就错） |
-| `auto-02-ffi-contract.php` | C ABI 契约：`Base::ffi()` 能加载 = 头文件里 30 个函数全部解析成功；再拿 `source/exports.def` 逐个探测 |
+| `auto-02-ffi-contract.php` | C ABI 契约：`Base::ffi()` 能加载 = 头文件里全部函数都解析成功；再拿 `source/exports.def` 逐个探测 |
 | `auto-03-encode-result.php` | `bind` 回调返回值编码的全部边界（falsy / 转义 / INF、NAN） |
 | `auto-04-parse-rgb.php` | 颜色字符串解析的边界 |
 | `auto-05-dialog-contract.php` | `Dialog` 三个方法的公开签名 |
 | `auto-06-toast-contract.php` | `Toast::show` 的公开签名 + FFI 符号可调用 |
 | `auto-win-01-lifecycle.php` | 窗口创建/配置/销毁、`$tray` 初始状态、旧崩溃路径 |
-| `auto-win-02-setters.php` | 各 setter 返回 self、4 个 `WindowHint` |
+| `auto-win-02-setters.php` | 各 setter 返回 self、4 个 `WindowHint`、setTransparent / setAlwaysOnTop / setPosition / setClickThrough 契约 |
 | `auto-win-03-icon.php` | `setIcon` 正常 + 文件不存在抛异常 |
 | `auto-win-04-titlebar.php` | 标题栏换肤的跨平台能力矩阵、非法颜色抛异常 |
 | `auto-win-05-bind.php` | `bind` / `unBind` 返回 self、幂等边界 |
@@ -91,6 +92,7 @@ php -d extension=ffi -d ffi.enable=1 test/demo-run-loop.php
 | `demo-toast.php` | 真实系统通知（带/不带图标、中文、错误图标路径） | 通知是否出现、标题正文图标、返回值 | 无阻塞 |
 | `demo-tray.php` | 托盘 + 菜单（显示/隐藏/勾选项/禁用项/通知/退出） | 托盘图标、勾选态、禁用项是否点不动 | 托盘「退出」或直接关窗 |
 | `demo-titlebar.php` | 5 种标题栏**颜色**配置，每 3 秒切一次 | 标题栏颜色是否真的变（Windows 上最完整） | 约 15 秒后自动结束 |
+| `demo-transparent.php` | `setTransparent` 真透明验收：底层参照法（hide 抓 base → show 抓 on，含绿/红子元素 alpha 实验）+ 状态行（layered/NOREDIRECT/Z）+ 截图落盘 | `A_on == base` 是否逐位一致（透出成功）、截图是否"页面内容可见 + 背景透出" | 采样完成自动结束（约 8 秒） |
 | `demo-custom-titlebar.php` | **自绘标题栏**：HTML 画一条 36px 的栏 + 三个按钮，接到 minimize/toggleMaximize/close | 系统标题栏是否消失、能否拖动/双击最大化/贴边、按钮是否可点、最大化时状态是否同步 | 点右上角关闭按钮 |
 | `demo-run-loop.php` | `run()` + `setCloseCallback`（第一次拒绝关闭）+ `dispatch` | 关闭被拒绝、dispatch 是否执行 | 连点两次 X，或托盘退出 |
 | `demo-bind.php` | JS 真的 await 各种返回值 | 哪些 resolve、哪些 reject、有没有一直 pending 的 | 直接关窗 |

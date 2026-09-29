@@ -46,6 +46,53 @@ extern "C"
     void window_tray_remove(void *tray);
 
     /**
+     * @brief 窗口透明背景（窗口层）
+     *
+     * enable=1 让窗口进入逐像素合成（配合页面 CSS 背景透明可透出桌面），
+     * enable=0 关闭、回到不透明窗口。
+     *
+     * @param ptr    窗口句柄
+     * @param enable 1 = 开启透明，0 = 关闭
+     * @return int   0 = OK，1 = 窗口不存在，
+     *               3 = 当前平台不支持（Linux 无合成器，或窗口已 realize ——
+     *                   GTK 的 visual 只能在 realize 前设置，须在 run() 之前调用）
+     */
+    int window_set_transparent(const void *ptr, int enable);
+
+    /**
+     * @brief 窗口置顶
+     *
+     * @param ptr    窗口句柄
+     * @param enable 1 = 进入置顶层，0 = 回到普通 Z 层
+     * @return int   0 = OK，1 = 窗口不存在（不改位置/大小/激活态）
+     */
+    int window_set_always_on_top(const void *ptr, int enable);
+
+    /**
+     * @brief 窗口定位：把窗口左上角移动到屏幕坐标 (x, y)
+     *
+     * macOS 内部按主屏坐标系换算 y（多显示器副屏可能偏差）。
+     *
+     * @param ptr 窗口句柄
+     * @param x   屏幕坐标 X（窗口左上角）
+     * @param y   屏幕坐标 Y（窗口左上角）
+     * @return int 0 = OK，1 = 窗口不存在
+     */
+    int window_set_position(const void *ptr, int x, int y);
+
+    /**
+     * @brief 整窗点击穿透：开启后鼠标事件落到下层窗口
+     *
+     * 只翻转 WS_EX_TRANSPARENT，不影响窗口透明的 layered 状态位（两者独立开关）。
+     * Linux 需窗口 realize（run() 显示）之后调用。
+     *
+     * @param ptr    窗口句柄
+     * @param enable 1 = 开启穿透，0 = 关闭
+     * @return int   0 = OK，1 = 窗口不存在，3 = 平台或时机不支持
+     */
+    int window_set_click_through(const void *ptr, int enable);
+
+    /**
      * @brief 设置窗口标题栏外观（浅色 / 深色与配色）
      *
      * @param ptr     窗口句柄

@@ -27,6 +27,10 @@ webview_error_t webview_bind(webview_t w, const char *name, void (*fn)(const cha
 webview_error_t webview_unbind(webview_t w, const char *name);
 webview_error_t webview_return(webview_t w, const char *id, int status, const char *result);
 webview_error_t webview_set_close_callback(webview_t w, int (*fn)(void *));
+// 渲染层背景透明：与 window_set_transparent（窗口层）配套，enable 非 0 时
+// 渲染层输出透明像素，页面 CSS 背景透明即可透出桌面。
+// 返回 0=OK；负数为 webview 错误码（-3=状态无效，-5=运行时缺该能力）。
+webview_error_t webview_set_transparent(webview_t w, int enable);
 
 // ---------------------------------------------------------------------------
 // 窗口图标与显示控制（source/seticon、source/window）
@@ -47,6 +51,26 @@ int window_hide(const void *ptr);
 void *window_tray(const void *ptr, const char *icon);
 void window_tray_add_menu(const void *tray, struct tray_menu *menu);
 void window_tray_remove(void *tray);
+
+// 窗口透明背景（窗口层）：enable=1 让窗口进入逐像素合成，配合页面 CSS
+// 背景透明可透出桌面；enable=0 关闭、回到不透明窗口。
+// 返回 0=OK、1=窗口不存在、3=当前平台不支持（Linux 无合成器、或已在
+// realize 之后调用 —— GTK 的 visual 只能在 realize 前设置）。
+int window_set_transparent(const void *ptr, int enable);
+
+// 窗口置顶：enable 非 0 进入置顶层，0 回到普通 Z 层（不改位置/大小/激活态）。
+// 返回 0=OK、1=窗口不存在。
+int window_set_always_on_top(const void *ptr, int enable);
+
+// 窗口定位：把窗口左上角移动到屏幕坐标 (x, y)，尺寸与 Z 层不变。
+// macOS 内部按主屏坐标系换算 y（多显示器副屏可能偏差）。
+// 返回 0=OK、1=窗口不存在。
+int window_set_position(const void *ptr, int x, int y);
+
+// 整窗点击穿透：enable 非 0 时鼠标事件落到下层窗口（只翻 WS_EX_TRANSPARENT，
+// 不影响窗口透明的 layered 状态位）；Linux 需窗口 realize（run() 显示）之后调用。
+// 返回 0=OK、1=窗口不存在、3=平台或时机不支持。
+int window_set_click_through(const void *ptr, int enable);
 
 // 标题栏外观：mode 为 -1/0/1（跟随系统 / 浅色 / 深色），
 // caption 与 text 是 0xRRGGBB，传 -1 表示不覆盖。

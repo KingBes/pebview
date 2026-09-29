@@ -138,6 +138,110 @@ $win->setTitlebarTheme(dark: true, caption: "#1F2430", text: "#FFD166");
 
 An invalid color format throws `InvalidArgumentException`; a missing window or a combination unsupported on the current platform throws `RuntimeException`.
 
+### Transparent Window Background
+
+Enables / disables **window-level + render-layer** per-pixel transparency. When enabled, regions
+the page does not paint show the desktop (or windows behind), while normally painted page content
+(text, images, buttons) stays visible.
+
+Support per platform:
+
+| Platform | Support |
+| --- | --- |
+| Windows | Supported; can be toggled at any time |
+| macOS | Supported; can be toggled at any time |
+| Linux | Requires a desktop compositor, and **must be called before `run()`** (GTK can only attach the rgba visual before the window is realized); otherwise it throws |
+
+Public Method
+ - `setTransparent` Sets the transparent window background.
+    Parameters
+  - `bool` `$enable` true to enable transparency, false to disable and return to an opaque window (default true).
+    Returns
+  - `Window` Returns the window object.
+
+Required page-side cooperation: both `html` and `body` backgrounds must be transparent, otherwise
+the page's own opaque background hides the effect:
+
+```PHP
+// On Linux this must be called before run(); Windows / macOS allow any time
+$win->setTransparent(true);
+$win->setHtml(<<<'HTML'
+<html style="background: transparent">
+<body style="background: transparent">content…</body>
+</html>
+HTML);
+$win->run();
+```
+
+A missing window or an unsupported platform throws `RuntimeException` — never silently ignored.
+
+### Always on Top
+
+Enters / leaves the system topmost layer (always above other windows). Position, size and activation state are unchanged.
+
+Public Method
+ - `setAlwaysOnTop` Sets whether the window stays on top.
+    Parameters
+  - `bool` `$enable` true to enter the topmost layer, false to return to the normal Z layer (default true).
+    Returns
+  - `Window` Returns the window object.
+
+Usage:
+```PHP
+$win->setAlwaysOnTop(true);  // pin on top
+$win->setAlwaysOnTop(false); // unpin
+```
+
+A missing window throws `RuntimeException`. Some window managers (certain Wayland environments) may ignore the request — an environment limitation.
+
+### Set Window Position
+
+Moves the window's top-left corner to screen coordinates `(x, y)`. Size is unchanged.
+
+Coordinate semantics: Windows / Linux use system screen coordinates (origin at top-left, y grows downward); macOS converts internally using the primary display — **on multi-monitor setups with the window on a secondary display the result may be off** (known limitation).
+
+Public Method
+ - `setPosition` Moves the window.
+    Parameters
+  - `int` `$x` Screen X of the window's top-left corner.
+  - `int` `$y` Screen Y of the window's top-left corner.
+    Returns
+  - `Window` Returns the window object.
+
+Usage:
+```PHP
+$win->setPosition(100, 100); // move top-left corner to (100, 100)
+```
+
+A missing window throws `RuntimeException`.
+
+### Whole-window Click-through
+
+When enabled, the **entire window** stops receiving mouse events (clicks and hovers fall through to windows behind); disabling restores interaction. Independent of `setTransparent` — the two can be combined freely.
+
+Support per platform:
+
+| Platform | Support |
+| --- | --- |
+| Windows | Supported; can be toggled at any time |
+| macOS | Supported; can be toggled at any time |
+| Linux | **Must be called after the window is shown (`run()`)** — GTK can only set the hit region on a realized window; calling earlier throws |
+
+Public Method
+ - `setClickThrough` Sets whole-window click-through.
+    Parameters
+  - `bool` `$enable` true to enable, false to disable (default true).
+    Returns
+  - `Window` Returns the window object.
+
+Usage:
+```PHP
+$win->setClickThrough(true); // window ignores the mouse (widget combo: setAlwaysOnTop(true) first)
+$win->setClickThrough(false);
+```
+
+A missing window, or an unsupported platform / timing, throws `RuntimeException` — never silently ignored.
+
 ### Custom Titlebar (Truly Borderless + JS-driven Resize)
 
 **This is a different thing from the section above.** The previous one only changes the titlebar's

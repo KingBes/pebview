@@ -419,6 +419,11 @@ WEBVIEW_API const webview_version_info_t *webview_version(void);
 
 WEBVIEW_API webview_error_t webview_set_close_callback(webview_t w, int (*fn)(void*));
 
+// 开关渲染层背景透明（PebView 扩展）：enable 非 0 时渲染层输出透明像素，
+// 与窗口层的 window_set_transparent 配合才能透出桌面。
+// 返回 WEBVIEW_ERROR_OK；-3=webview 状态无效，-5=当前运行时缺该能力。
+WEBVIEW_API webview_error_t webview_set_transparent(webview_t w, int enable);
+
 #ifdef __cplusplus
 }
 
@@ -1330,8 +1335,17 @@ window.__webview__.onUnbind(" +
     return {};
   }
 
+  // 开关渲染层背景透明（与 window_set_transparent 的窗口层配套）：
+  // enable 非 0 时渲染层输出透明像素，页面 CSS 背景透明即可透出桌面。
+  // 三平台实现不同，做不到时返回 error_info，不静默无效。
+  noresult set_transparent(int enable) {
+    m_transparent = enable ? 1 : 0;
+    return set_transparent_impl();
+  }
+
 protected:
   std::function<int()> m_close_callback;
+  int m_transparent{0};
   virtual noresult navigate_impl(const std::string &url) = 0;
   virtual result<void *> window_impl() = 0;
   virtual result<void *> widget_impl() = 0;
@@ -1344,6 +1358,7 @@ protected:
                                  webview_hint_t hints) = 0;
   virtual noresult set_html_impl(const std::string &html) = 0;
   virtual noresult eval_impl(const std::string &js) = 0;
+  virtual noresult set_transparent_impl() = 0;
 
   virtual user_script *add_user_script(const std::string &js) {
     return std::addressof(*m_user_scripts.emplace(m_user_scripts.end(),
@@ -1994,6 +2009,21 @@ protected:
     return {};
   }
 
+  // 渲染层背景透明：WebKitGTK 未被页面覆盖的区域显示 set_background_color
+  // 指定的颜色，alpha=0 即透出窗口之下（前提是窗口层已挂 rgba visual，
+  // 见 window_set_transparent）。恢复用不透明白，与 WebKitGTK 默认观感一致。
+  noresult set_transparent_impl() override {
+    if (!m_webview) {
+      return error_info{WEBVIEW_ERROR_INVALID_STATE};
+    }
+    GdkRGBA color{1.0, 1.0, 1.0, 1.0};
+    if (m_transparent) {
+      color = GdkRGBA{0.0, 0.0, 0.0, 0.0};
+    }
+    webkit_web_view_set_background_color(WEBKIT_WEB_VIEW(m_webview), &color);
+    return {};
+  }
+
   noresult set_size_impl(int width, int height, webview_hint_t hints) override {
     gtk_window_set_resizable(GTK_WINDOW(m_window), hints != WEBVIEW_HINT_FIXED);
     if (hints == WEBVIEW_HINT_NONE) {
@@ -2329,6 +2359,23 @@ protected:
 
   noresult terminate_impl() override {
     stop_run_loop();
+    return {};
+  }
+
+  // 渲染层背景透明：WKWebView 没有公开的 drawsBackground 接口，走 KVC
+  // （这是社区通用做法）。页面未覆盖区域 alpha=0 时透出窗口之下，
+  // 前提是窗口层已 setOpaque:NO（见 window_set_transparent）。
+  // ⚠️ 本机没有 macOS 环境，这段只做了语法层面的实现，未在真机验证过。
+  noresult set_transparent_impl() override {
+    if (!m_webview) {
+      return error_info{WEBVIEW_ERROR_INVALID_STATE};
+    }
+    objc::autoreleasepool arp;
+    auto value = objc::msg_send<id>("NSNumber"_cls, "numberWithBool:"_sel,
+                                     m_transparent ? NO : YES);
+    // Equivalent Obj-C: [webview setValue:@YES forKey:@"drawsBackground"];
+    objc::msg_send<void>(m_webview, "setValue:forKey:"_sel, value,
+                         "drawsBackground"_str);
     return {};
   }
 
@@ -3829,10 +3876,9 @@ private:
 // 而 WebView2 只在 options 为空时才读 WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS。
 // 这个开关对没用 app-region 的页面完全无副作用，所以这里无条件补齐；
 // 若调用方自己设过这个变量，只把 feature 并进已有的 --enable-features 列表，不覆盖。
-static void pebview_ensure_draggable_regions() {
+static void pebview_append_browser_feature(const wchar_t *kSwitch,
+                                           const wchar_t *kFeature) {
   static const wchar_t kName[] = L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS";
-  static const wchar_t kSwitch[] = L"--enable-features=";
-  static const wchar_t kFeature[] = L"msWebView2EnableDraggableRegions";
 
   std::wstring value;
   wchar_t buf[4096];
@@ -3852,7 +3898,7 @@ static void pebview_ensure_draggable_regions() {
     }
     value += sw + kFeature;
   } else {
-    // 已经有 --enable-features=xxx 了，把我们的名字并到那个列表末尾
+    // 已经有同名 switch 了，把我们的名字并到那个列表末尾
     size_t list_start = pos + sw.size();
     size_t list_end = value.find(L' ', list_start);
     if (list_end == std::wstring::npos) {
@@ -3861,6 +3907,21 @@ static void pebview_ensure_draggable_regions() {
     value.insert(list_end, std::wstring(L",") + kFeature);
   }
   ::SetEnvironmentVariableW(kName, value.c_str());
+}
+
+static void pebview_ensure_draggable_regions() {
+  pebview_append_browser_feature(L"--enable-features=",
+                                 L"msWebView2EnableDraggableRegions");
+}
+
+// 禁用 Chromium 的 Auto Dark Mode：Win11 深色系统下它会把页面强制改写成
+// "深色不透明底 + 反色文字"（实测连 CSS 里写死的 #1a1a1a 都会被反相成浅色），
+// 页面自己的 html/body 背景透明被它覆盖 —— 透明窗口（window_set_transparent +
+// webview_set_transparent）就永远透不出桌面（2026-09-29 像素采样实测钉死）。
+// PebView 是"页面即 UI"的组件，页面深浅应由页面自己决定，不该被浏览器改写。
+static void pebview_disable_auto_dark() {
+  pebview_append_browser_feature(L"--disable-features=",
+                                 L"AutoDarkModeForWebContents");
 }
 
 class win32_edge_engine : public engine_base {
@@ -3969,8 +4030,15 @@ public:
       });
       RegisterClassExW(&wc);
 
-      CreateWindowW(L"webview", L"", WS_OVERLAPPEDWINDOW , CW_USEDEFAULT,
-                    CW_USEDEFAULT, 0, 0, nullptr, nullptr, hInstance, this);
+      // WS_EX_NOREDIRECTIONBITMAP 必须在 CreateWindowEx 时带上：DWM 在窗口
+      // 创建时决定合成路径，事后 SetWindowLong 运行时补加无效（实测：运行时
+      // 加位后透明像素仍显示为黑，与 winit/tao 的做法对齐 —— 它们也是建窗时
+      // 通过 WindowFlags 带上的）。窗口表面由此走 DirectComposition 直通通道，
+      // WebView2 的逐像素 alpha 才能到达屏幕（这是透明窗口的前提）。
+      // 非透明状态下该标志无副作用（实测 off 状态页面显示正常）。
+      CreateWindowExW(WS_EX_NOREDIRECTIONBITMAP, L"webview", L"",
+                      WS_OVERLAPPEDWINDOW, CW_USEDEFAULT,
+                      CW_USEDEFAULT, 0, 0, nullptr, nullptr, hInstance, this);
       if (!m_window) {
         throw exception{WEBVIEW_ERROR_INVALID_STATE, "Window is null"};
       }
@@ -4183,6 +4251,22 @@ protected:
     return {};
   }
 
+  // 渲染层背景透明：QI 到 ICoreWebView2Controller2 把默认背景 alpha 设 0
+  // （恢复为不透明白 = WebView2 原始默认）。页面未绘制区域即输出 alpha=0
+  // 像素，配合窗口层的 WS_EX_LAYERED + DWM 边框扩展透出桌面。
+  noresult set_transparent_impl() override {
+    if (!m_controller) {
+      // WebView2 尚未就绪：正常路径 create 会同步等到就绪；万一没等到，
+      // embed() 的就绪回调会按 m_transparent 补应用。
+      return {};
+    }
+    if (!try_apply_transparent_background()) {
+      // Runtime 太老：没有 ICoreWebView2Controller2（默认背景 alpha 能力）
+      return error_info{WEBVIEW_ERROR_MISSING_DEPENDENCY};
+    }
+    return {};
+  }
+
   noresult set_size_impl(int width, int height, webview_hint_t hints) override {
     auto style = GetWindowLong(m_window, GWL_STYLE);
     if (hints == WEBVIEW_HINT_FIXED) {
@@ -4271,6 +4355,58 @@ protected:
   }
 
 private:
+  // 应用渲染层背景透明：QI 到 ICoreWebView2Controller2 设置默认背景 alpha；
+  // 同时按透明状态切换 PreferredColorScheme —— Win11 深色系统下 WebView2 的
+  // Auto Dark 会把页面改写成"深色不透明底 + 反色字"（CSS 写死的颜色都会被
+  // 反相），html/body 的背景透明被覆盖，alpha=0 就永远透不出桌面（像素采样
+  // 实测钉死）。透明时强制 LIGHT 让页面按自身 CSS 渲染；恢复时传 AUTO，
+  // 行为与不调用时一致、零 BC。
+  // set_transparent_impl 与 embed() 的就绪回调共用；就绪回调路径下失败只能
+  // 静默（调用点早已返回），同步路径的失败由 set_transparent_impl 上报。
+  bool try_apply_transparent_background() {
+    if (!m_controller) {
+      return false;
+    }
+    ICoreWebView2Controller2 *controller2 = nullptr;
+    if (FAILED(m_controller->QueryInterface(
+            IID_ICoreWebView2Controller2,
+            reinterpret_cast<void **>(&controller2))) ||
+        !controller2) {
+      return false;
+    }
+    COREWEBVIEW2_COLOR color{};
+    color.R = 255;
+    color.G = 255;
+    color.B = 255;
+    color.A = m_transparent ? 0 : 255; // A=0 → 页面未绘制区域全透明（只支持 0/255）
+    // HRESULT 必须查：E_INVALIDARG（如 Win7 不支持 alpha≠255）此前被丢弃，
+    // 失败会静默表现为"设置没生效"，无从排查。
+    HRESULT hr = controller2->put_DefaultBackgroundColor(color);
+    controller2->Release();
+    if (FAILED(hr)) {
+      return false;
+    }
+
+    // 配套：切页面配色方案（老 Runtime 缺接口就跳过，不影响 alpha）。
+    // PreferredColorScheme 在 ICoreWebView2Profile 上，经 ICoreWebView2_13 取。
+    if (m_webview) {
+      ICoreWebView2_13 *webview13 = nullptr;
+      if (SUCCEEDED(m_webview->QueryInterface(
+              IID_ICoreWebView2_13, reinterpret_cast<void **>(&webview13))) &&
+          webview13) {
+        ICoreWebView2Profile *profile = nullptr;
+        if (SUCCEEDED(webview13->get_Profile(&profile)) && profile) {
+          profile->put_PreferredColorScheme(
+              m_transparent ? COREWEBVIEW2_PREFERRED_COLOR_SCHEME_LIGHT
+                            : COREWEBVIEW2_PREFERRED_COLOR_SCHEME_AUTO);
+          profile->Release();
+        }
+        webview13->Release();
+      }
+    }
+    return true;
+  }
+
   noresult embed(HWND wnd, bool debug, msg_cb_t cb) {
     std::atomic_flag flag = ATOMIC_FLAG_INIT;
     flag.test_and_set();
@@ -4279,13 +4415,23 @@ private:
     GetModuleFileNameW(nullptr, currentExePath, MAX_PATH);
     wchar_t *currentExeName = PathFindFileNameW(currentExePath);
 
-    wchar_t dataPath[MAX_PATH];
-    if (!SUCCEEDED(
-            SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, dataPath))) {
-      return error_info{WEBVIEW_ERROR_UNSPECIFIED, "SHGetFolderPathW failed"};
-    }
+    // 用户数据目录：默认 %APPDATA%\<进程名>；
+    // 可用 PEBVIEW_USER_DATA_FOLDER 环境变量覆盖 —— 受限环境（沙箱不允许写
+    // AppData）或多实例需要各自独立 profile 时用。
     wchar_t userDataFolder[MAX_PATH];
-    PathCombineW(userDataFolder, dataPath, currentExeName);
+    wchar_t envOverride[MAX_PATH];
+    DWORD envLen = GetEnvironmentVariableW(L"PEBVIEW_USER_DATA_FOLDER",
+                                           envOverride, MAX_PATH);
+    if (envLen > 0 && envLen < MAX_PATH) {
+      lstrcpynW(userDataFolder, envOverride, MAX_PATH);
+    } else {
+      wchar_t dataPath[MAX_PATH];
+      if (!SUCCEEDED(
+              SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, dataPath))) {
+        return error_info{WEBVIEW_ERROR_UNSPECIFIED, "SHGetFolderPathW failed"};
+      }
+      PathCombineW(userDataFolder, dataPath, currentExeName);
+    }
 
     m_com_handler = new webview2_com_handler(
         wnd, cb,
@@ -4298,12 +4444,17 @@ private:
           webview->AddRef();
           m_controller = controller;
           m_webview = webview;
+          // 透明开关在 WebView2 就绪前调用过的话，这里补应用
+          if (m_transparent) {
+            try_apply_transparent_background();
+          }
           flag.clear();
         });
 
     m_com_handler->set_attempt_handler([&] {
       // 必须在创建 environment 之前补上，后面再设就来不及了
       pebview_ensure_draggable_regions();
+      pebview_disable_auto_dark();
       return m_webview2_loader.create_environment_with_options(
           nullptr, userDataFolder, nullptr, m_com_handler);
     });
@@ -4652,6 +4803,11 @@ WEBVIEW_API webview_error_t webview_set_close_callback(webview_t w, int (*fn)(vo
       return fn(nullptr);
     });
   });
+}
+
+WEBVIEW_API webview_error_t webview_set_transparent(webview_t w, int enable) {
+  using namespace webview::detail;
+  return api_filter([=] { return cast_to_webview(w)->set_transparent(enable); });
 }
 
 #endif /* WEBVIEW_HEADER */

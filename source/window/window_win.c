@@ -401,6 +401,108 @@ void window_tray_remove(void *tray)
 }
 
 // ---------------------------------------------------------------------------
+// 窗口透明背景（窗口层）
+// ---------------------------------------------------------------------------
+//
+// 配方（2026-09-29 定稿，对齐 winit/tao 的 Windows 透明实现）：
+//   WS_EX_NOREDIRECTIONBITMAP 在 CreateWindowEx 时带上（webview.h 建窗处），
+//   WS_EX_LAYERED 由本函数运行时开关。
+//
+// - WS_EX_NOREDIRECTIONBITMAP：窗口表面不走 DWM 重定向，由应用经
+//   DirectComposition 直接提交 —— WebView2 的 GPU 合成恰好走 DComp，
+//   它输出的逐像素 alpha 从这条通道到达屏幕，这是"接住 alpha"的关键。
+//   ⚠️ 必须建窗时带：DWM 在创建时决定合成路径，事后 SetWindowLong 运行时
+//   补加无效（实测：运行时加位后透明像素仍显示为黑）。非透明状态下挂着
+//   该标志无副作用（实测 off 状态显示正常），故常驻、关闭时不摘除。
+// - WS_EX_LAYERED：配套的分层窗口标志，可运行时开关。
+//
+// 实测教训（都踩过，别回退）：
+// 1. 不要调 SetLayeredWindowAttributes —— 一旦调用（哪怕 LWA_ALPHA=255），
+//    窗口进入"整窗统一 alpha"模式，per-pixel alpha 被忽略，alpha=0 像素
+//    按黑色值显示（全窗 #000000）。
+// 2. 不要 DwmExtendFrameIntoClientArea(-1) —— 扩展边框后客户区被 DWM 按
+//    frame 合成，透明像素显示为 frame 的深色而不是穿透（全窗深灰）。
+//    代价是窗口失去系统阴影，无边框自绘窗口本来就该自己画阴影。
+//
+// 关闭时撤销 LAYERED，恢复系统默认窗口行为。
+int window_set_transparent(const void *ptr, int enable)
+{
+    if (!ptr)
+    {
+        return 1; // WINDOW_NOT_FOUND
+    }
+
+    HWND hwnd = (HWND)ptr;
+    LONG_PTR ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+
+    if (enable)
+    {
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE,
+                          ex | WS_EX_LAYERED | WS_EX_NOREDIRECTIONBITMAP);
+    }
+    else
+    {
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex & ~WS_EX_LAYERED);
+    }
+
+    SetWindowPos(hwnd, NULL, 0, 0, 0, 0,
+                 SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    RedrawWindow(hwnd, NULL, NULL, RDW_FRAME | RDW_INVALIDATE | RDW_ERASE);
+    return 0; // OK
+}
+
+// 窗口置顶：HWND_TOPMOST / HWND_NOTOPMOST 进出置顶层。
+// 只动 Z 层 —— NOSIZE|NOMOVE|NOACTIVATE 保证位置 / 大小 / 激活态都不变。
+int window_set_always_on_top(const void *ptr, int enable)
+{
+    if (!ptr)
+    {
+        return 1; // WINDOW_NOT_FOUND
+    }
+    SetWindowPos((HWND)ptr, enable ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    return 0; // OK
+}
+
+// 窗口定位：把窗口左上角移动到屏幕坐标 (x, y)。NOSIZE|NOZORDER|NOACTIVATE
+// 保证只动位置。
+int window_set_position(const void *ptr, int x, int y)
+{
+    if (!ptr)
+    {
+        return 1; // WINDOW_NOT_FOUND
+    }
+    SetWindowPos((HWND)ptr, NULL, x, y, 0, 0,
+                 SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    return 0; // OK
+}
+
+// 整窗点击穿透：只翻 WS_EX_TRANSPARENT 位（命中测试穿过本窗口、鼠标事件落到
+// 下层窗口）。**绝不触碰 WS_EX_LAYERED / WS_EX_NOREDIRECTIONBITMAP** ——
+// 那两位是窗口透明功能的状态位，两个功能必须独立开关（穿透开、透明关时
+// layered 仍为关；反之亦然，见 window_set_transparent）。
+int window_set_click_through(const void *ptr, int enable)
+{
+    if (!ptr)
+    {
+        return 1; // WINDOW_NOT_FOUND
+    }
+    HWND hwnd = (HWND)ptr;
+    LONG_PTR ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+    if (enable)
+    {
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex | WS_EX_TRANSPARENT);
+    }
+    else
+    {
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex & ~WS_EX_TRANSPARENT);
+    }
+    SetWindowPos(hwnd, NULL, 0, 0, 0, 0,
+                 SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    return 0; // OK
+}
+
+// ---------------------------------------------------------------------------
 // 标题栏外观
 // ---------------------------------------------------------------------------
 
