@@ -26,8 +26,25 @@ jobs:
         name: linux-x86_64
         path: lib/linux/x86_64
 
+    # auto-02 会真的 dlopen PebView.so，缺 GTK/WebKit 时 FFI 加载失败、
+    # 契约用例只能退化成 skip —— 那样这个 job 就等于没校验 ABI。包名与
+    # build-linux-x86_64 保持一致（-dev 包名在 24.04 上稳定，t64 重命名影响不到它）。
+    - name: Install runtime dependencies for dlopen
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libnotify-dev libglib2.0-dev
+
+    # vendor/ 在 .gitignore 里，checkout 后并不存在，而用例入口 require 的是
+    # vendor/autoload.php —— 少了这一步，每个用例都会以
+    # "Failed opening required .../vendor/autoload.php" 直接崩掉。
+    # 本包没有第三方 require 依赖，所以这条只生成 autoload，不会拉包。
+    - name: Install Composer dependencies
+      run: composer install --no-interaction --no-progress --prefer-dist
+
+    # runner 自带的 PHP 已经把 ffi 编进来了（再传 -d extension=ffi 会打
+    # "Module \"FFI\" is already loaded" 警告），这里只显式打开 ffi.enable。
     - name: Run logic test suite
-      run: php -d extension=ffi -d ffi.enable=1 test/auto.php
+      run: php -d ffi.enable=1 test/auto.php
 
   build-windows-x86_64:
     runs-on: windows-2022

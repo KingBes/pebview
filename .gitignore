@@ -6,6 +6,7 @@ vendor
 composer.lock
 .codebuddy
 .workbuddy/
+.trae/
 source/build
 *.dll
 *.so
