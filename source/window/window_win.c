@@ -477,10 +477,215 @@ int window_set_position(const void *ptr, int x, int y)
     return 0; // OK
 }
 
+// ---------------------------------------------------------------------------
+// 区域白名单点击穿透（契约见 include/PebView.h / source/window/window.h）
+//
+// 机制（Windows）：WS_EX_TRANSPARENT 是整窗位、没有"按区域穿透"的原生开关，
+// 而宿主窗口在内容区收不到 WM_NCHITTEST（WebView2 的子窗口链吃掉鼠标），
+// 所以用 SetTimer 的 TIMERPROC 回调形式轮询光标：WM_TIMER 直调回调、不进
+// 窗口过程，对 webview 子类化过的 wndproc 零侵入；窗口销毁时系统自动清 timer。
+// 光标落在白名单矩形内就摘掉 TRANSPARENT（页面收点击），不在就加上（穿透）。
+// 状态无变化时不动样式位，避免 SetWindowPos 风暴。
+//
+// 坐标：rects 是页面 CSS px。光标先 ScreenToClient 到客户区物理像素，再按
+// 窗口 DPI 折算（GetDpiForWindow 动态加载，Win10 1607+；进程非 DPI-aware 时
+// 系统返回虚拟化的 96，GetCursorPos 也在同一虚拟坐标系，公式仍自洽）。
+// ---------------------------------------------------------------------------
+
+#define PEBVIEW_CLICKTHROUGH_PROP L"PebViewClickThroughProp"
+#define PEBVIEW_CT_TIMER_ID       1
+#define PEBVIEW_CT_INTERVAL_MS    30
+
+typedef struct PebViewClickThrough
+{
+    int *rects;      // CSS px 扁平数组 [x,y,w,h,...]，本结构持有
+    int rect_count;  // 矩形个数
+    int transparent; // 当前 WS_EX_TRANSPARENT 是否已置（0/1），状态变化才动位
+} PebViewClickThrough;
+
+// 取窗口 DPI。GetDpiForWindow 是 Win10 1607+，动态加载；取不到按 96。
+static UINT pebview_window_dpi(HWND hwnd)
+{
+    typedef UINT (WINAPI *GetDpiForWindowFn)(HWND);
+    HMODULE user32 = GetModuleHandleW(L"user32.dll");
+    if (user32)
+    {
+        GetDpiForWindowFn fn =
+            (GetDpiForWindowFn)(void *)GetProcAddress(user32, "GetDpiForWindow");
+        if (fn)
+        {
+            UINT dpi = fn(hwnd);
+            if (dpi > 0)
+            {
+                return dpi;
+            }
+        }
+    }
+    return 96;
+}
+
+// 客户区物理坐标是否落在某个白名单矩形里（矩形是 CSS px）
+static BOOL pebview_ct_hit_test(const PebViewClickThrough *ct, HWND hwnd, POINT pt_client)
+{
+    UINT dpi = pebview_window_dpi(hwnd);
+    double cx = pt_client.x * 96.0 / (double)dpi;
+    double cy = pt_client.y * 96.0 / (double)dpi;
+    for (int i = 0; i < ct->rect_count; i++)
+    {
+        const int *r = &ct->rects[i * 4];
+        if (cx >= r[0] && cx < r[0] + r[2] && cy >= r[1] && cy < r[1] + r[3])
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+// 置起/摘掉 WS_EX_TRANSPARENT；位没变就不动。
+// frame_changed：一次性调用（整窗开关、退出区域模式）传 TRUE 强制重算非客户区；
+// 轮询热路径传 FALSE —— SWP_FRAMECHANGED 会强制重算并触发重绘，30ms 一次就是闪烁。
+// 注意：无论哪个分支都绝不碰 WS_EX_LAYERED / WS_EX_NOREDIRECTIONBITMAP（透明功能的状态位）。
+static void pebview_ct_set_transparent(HWND hwnd, BOOL transparent, BOOL frame_changed)
+{
+    LONG_PTR ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+    LONG_PTR next = transparent ? (ex | WS_EX_TRANSPARENT) : (ex & ~WS_EX_TRANSPARENT);
+    if (next == ex)
+    {
+        return;
+    }
+    SetWindowLongPtrW(hwnd, GWL_EXSTYLE, next);
+    if (frame_changed)
+    {
+        SetWindowPos(hwnd, NULL, 0, 0, 0, 0,
+                     SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+}
+
+// 轮询回调：TIMERPROC 形式，WM_TIMER 直调这里、不进窗口过程。
+static void CALLBACK pebview_ct_timerproc(HWND hwnd, UINT msg, UINT_PTR id, DWORD time)
+{
+    (void)msg;
+    (void)id;
+    (void)time;
+    PebViewClickThrough *ct = (PebViewClickThrough *)GetPropW(hwnd, PEBVIEW_CLICKTHROUGH_PROP);
+    if (!ct || !IsWindow(hwnd))
+    {
+        return; // 状态槽已清（窗口销毁会自动清 timer，这里只是兜底）
+    }
+
+    POINT pt;
+    if (!GetCursorPos(&pt))
+    {
+        return;
+    }
+    ScreenToClient(hwnd, &pt);
+
+    // 非客户区（系统标题栏、边框）永远是系统 UI —— 拖动、最小化、关闭都靠它，
+    // 绝不能穿透。穿透只发生在"客户区内、白名单之外"的部分；光标在窗口外时
+    // 本窗不参与命中，也保持可点（这样从外面靠近标题栏的第一拍就是对的）。
+    RECT rc;
+    if (!GetClientRect(hwnd, &rc))
+    {
+        return;
+    }
+    BOOL want_transparent = FALSE;
+    if (pt.x >= rc.left && pt.x < rc.right && pt.y >= rc.top && pt.y < rc.bottom)
+    {
+        BOOL hit = pebview_ct_hit_test(ct, hwnd, pt);
+        // 语义对齐：命中白名单 = 要可点（TRANSPARENT=FALSE）；没命中 = 要穿透（TRUE）。
+        // 注意不能拿 hit 与 ct->transparent 直接比相等 —— 两者的布尔含义是取反关系。
+        want_transparent = hit ? FALSE : TRUE;
+    }
+    if ((int)want_transparent == ct->transparent)
+    {
+        return; // 状态没变，不动样式位
+    }
+    pebview_ct_set_transparent(hwnd, want_transparent, FALSE); // 轮询热路径：不强制重算
+    ct->transparent = (int)want_transparent;
+}
+
+// 撤掉区域模式的全部状态（供互切复用）。不动 WS_EX_TRANSPARENT ——
+// 最终位状态由调用方决定。
+static void pebview_click_through_stop(HWND hwnd)
+{
+    PebViewClickThrough *ct = (PebViewClickThrough *)GetPropW(hwnd, PEBVIEW_CLICKTHROUGH_PROP);
+    if (!ct)
+    {
+        return;
+    }
+    KillTimer(hwnd, PEBVIEW_CT_TIMER_ID);
+    RemovePropW(hwnd, PEBVIEW_CLICKTHROUGH_PROP);
+    free(ct->rects);
+    free(ct);
+}
+
+int window_set_click_through_regions(const void *ptr, const int *rects, int count)
+{
+    if (!ptr)
+    {
+        return 1; // WINDOW_NOT_FOUND
+    }
+    if (count < 0 || (count > 0 && !rects))
+    {
+        return 4; // INVALID_ARGUMENT
+    }
+    HWND hwnd = (HWND)ptr;
+
+    if (count == 0)
+    {
+        // 退出区域模式、恢复正常交互：撤轮询 + 摘穿透位
+        pebview_click_through_stop(hwnd);
+        pebview_ct_set_transparent(hwnd, FALSE, TRUE);
+        return 0; // OK
+    }
+
+    // 已在区域模式：只换矩形，保留定时器与当前穿透状态（幂等更新）。
+    // 页面采集器可能高频重报相同区域（DOM 抖动/调试条刷新），若走整段重建，
+    // 穿透位会被反复重置成初始穿透、再由定时器翻回来 —— 表现为窗口持续闪烁。
+    PebViewClickThrough *ct = (PebViewClickThrough *)GetPropW(hwnd, PEBVIEW_CLICKTHROUGH_PROP);
+    if (ct)
+    {
+        int *newRects = (int *)malloc(sizeof(int) * 4 * (size_t)count);
+        if (!newRects)
+        {
+            return 3; // 内存不足按"不支持"处理，不静默
+        }
+        memcpy(newRects, rects, sizeof(int) * 4 * (size_t)count);
+        free(ct->rects);
+        ct->rects = newRects;
+        ct->rect_count = count;
+        return 0; // OK —— 定时器与当前位状态原样保留
+    }
+
+    // 首次进入区域模式：全新建立
+    ct = (PebViewClickThrough *)calloc(1, sizeof(PebViewClickThrough));
+    if (!ct)
+    {
+        return 3; // 内存不足按"不支持"处理，不静默
+    }
+    ct->rects = (int *)malloc(sizeof(int) * 4 * (size_t)count);
+    if (!ct->rects)
+    {
+        free(ct);
+        return 3;
+    }
+    memcpy(ct->rects, rects, sizeof(int) * 4 * (size_t)count);
+    ct->rect_count = count;
+    // 初始假定光标在白名单外 -> 先置穿透；30ms 内第一拍按实际位置纠正。
+    // 先穿透更安全：不会在设置瞬间让页面误收一次点击。
+    ct->transparent = 1;
+    SetPropW(hwnd, PEBVIEW_CLICKTHROUGH_PROP, ct);
+    pebview_ct_set_transparent(hwnd, TRUE, TRUE);
+    SetTimer(hwnd, PEBVIEW_CT_TIMER_ID, PEBVIEW_CT_INTERVAL_MS, pebview_ct_timerproc);
+    return 0; // OK
+}
+
 // 整窗点击穿透：只翻 WS_EX_TRANSPARENT 位（命中测试穿过本窗口、鼠标事件落到
 // 下层窗口）。**绝不触碰 WS_EX_LAYERED / WS_EX_NOREDIRECTIONBITMAP** ——
 // 那两位是窗口透明功能的状态位，两个功能必须独立开关（穿透开、透明关时
 // layered 仍为关；反之亦然，见 window_set_transparent）。
+//
+// 与区域白名单模式互斥覆盖：进入前先撤掉区域模式的轮询状态（最后调用者获胜）。
 int window_set_click_through(const void *ptr, int enable)
 {
     if (!ptr)
@@ -488,6 +693,7 @@ int window_set_click_through(const void *ptr, int enable)
         return 1; // WINDOW_NOT_FOUND
     }
     HWND hwnd = (HWND)ptr;
+    pebview_click_through_stop(hwnd); // 互切：若在区域模式，先撤
     LONG_PTR ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
     if (enable)
     {

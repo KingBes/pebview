@@ -303,6 +303,65 @@ int window_set_click_through(const void *ptr, int enable)
     return 0; // OK
 }
 
+// 区域白名单点击穿透：rects 内正常接收鼠标，rects 外穿透。
+// input shape 原生支持多矩形 region —— 不用轮询，X/Wayland 在事件路由层
+// 直接按形状命中，rects 外的事件落到下层窗口。坐标是页面 CSS px，
+// 按 gdk 的整数 scale factor 换算成 shape 用的窗口像素坐标
+// （Wayland 分数缩放下 scale_factor 是近似，见文档标注）。
+// 与整窗版同一 realize 约束：未 realize 返回 3（run() 之后再调）。
+//
+// 标题栏：SSD（系统装饰，默认）下标题栏由窗口管理器绘制、是独立的 WM 窗口，
+// input shape 管不到它，系统拖动/按钮天然可用；CSD（用过 set_titlebar_theme
+// 切自绘头）时标题栏在 GDK 窗口内、会被 shape 穿透 —— 已知局限，见文档。
+int window_set_click_through_regions(const void *ptr, const int *rects, int count)
+{
+    if (!ptr)
+    {
+        return 1; // WINDOW_NOT_FOUND
+    }
+    GtkWidget *widget = (GtkWidget *)ptr;
+    if (!GTK_IS_WINDOW(widget))
+    {
+        return 1;
+    }
+    if (count < 0 || (count > 0 && !rects))
+    {
+        return 4; // INVALID_ARGUMENT
+    }
+    if (!gtk_widget_get_realized(widget))
+    {
+        return 3; // OS_UNSUPPORTED：需在 run() 之后（窗口显示后）调用
+    }
+
+    if (count == 0)
+    {
+        // 退出区域模式、恢复正常交互（input shape 恢复默认）
+        gtk_widget_input_shape_combine_region(widget, NULL);
+        return 0; // OK
+    }
+
+    int scale = gtk_widget_get_scale_factor(widget);
+    if (scale < 1)
+    {
+        scale = 1;
+    }
+
+    // 并入所有矩形；cairo_region 会自动归并重叠/相邻部分
+    cairo_region_t *region = cairo_region_create();
+    for (int i = 0; i < count; i++)
+    {
+        cairo_rectangle_int_t r;
+        r.x = rects[i * 4 + 0] * scale;
+        r.y = rects[i * 4 + 1] * scale;
+        r.width = rects[i * 4 + 2] * scale;
+        r.height = rects[i * 4 + 3] * scale;
+        cairo_region_union_rectangle(region, &r);
+    }
+    gtk_widget_input_shape_combine_region(widget, region);
+    cairo_region_destroy(region);
+    return 0; // OK
+}
+
 // ---------------------------------------------------------------------------
 // 标题栏外观
 // ---------------------------------------------------------------------------

@@ -41,6 +41,7 @@ EXPORTS
     window_set_always_on_top
     window_set_position
     window_set_click_through
+    window_set_click_through_regions
     window_set_transparent
     window_set_titlebar_theme
     window_set_titlebar_geometry

@@ -72,6 +72,15 @@ int window_set_position(const void *ptr, int x, int y);
 // 返回 0=OK、1=窗口不存在、3=平台或时机不支持。
 int window_set_click_through(const void *ptr, int enable);
 
+// 区域白名单点击穿透：rects 内的区域正常接收鼠标，rects 外穿透到下层窗口。
+// rects 是扁平 int 数组 [x0,y0,w0,h0, x1,y1,w1,h1, ...]，坐标为页面 CSS px
+// （与 DOM 布局一致），各平台内部自行换算 DPI / 缩放。count 是矩形个数
+// （数组长度 = count * 4）；count<=0 表示退出区域模式、恢复正常交互（rects 可 NULL）。
+// 与 window_set_click_through 互斥覆盖：任一方的调用都会撤销另一方的状态。
+// 区域通常由页面 JS 采集可交互元素矩形后经 bind 上报（见 PHP 侧文档）。
+// 返回 0=OK、1=窗口不存在、3=平台或时机不支持（Linux 需 realize）、4=参数非法。
+int window_set_click_through_regions(const void *ptr, const int *rects, int count);
+
 // 标题栏外观：mode 为 -1/0/1（跟随系统 / 浅色 / 深色），
 // caption 与 text 是 0xRRGGBB，传 -1 表示不覆盖。
 // 返回 0=OK、1=窗口不存在、3=该平台不支持这组配置。

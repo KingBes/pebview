@@ -247,6 +247,8 @@ class Window extends Base
      *
      * 开启后整个窗口不再接收鼠标事件（事件落到下层窗口），关闭后恢复。
      * 与 setTransparent 相互独立：两者各自翻转自己的标志位、互不影响。
+     * 与区域白名单模式（setClickThroughRegions）互斥覆盖：本方法调用会
+     * 退出区域模式，最后调用者获胜。
      *
      * 各平台：
      *   - Windows / macOS：随时可调
@@ -272,6 +274,111 @@ class Window extends Base
             });
         }
         return $this;
+    }
+
+    /**
+     * 区域白名单点击穿透
+     *
+     * $rects 内的矩形区域正常接收鼠标，其余区域穿透到下层窗口 ——
+     * 透明悬浮挂件的"真实点击穿透"就用它：内容可点、周围透明区穿透。
+     * 坐标是页面 CSS px（与 DOM 布局一致）。每个矩形支持两种写法，可混用：
+     *   - 列表形式：[[10, 20, 200, 40], ...]
+     *   - 关联形式：[['x' => 10, 'y' => 20, 'w' => 200, 'h' => 40], ...]
+     * 传空数组退出区域模式、恢复正常交互。浮点坐标自动取整（容忍
+     * getBoundingClientRect 的小数）；宽高为负直接抛异常，不做 abs。
+     *
+     * 与 setClickThrough 互斥覆盖：任一方的调用都会撤销另一方（最后调用者获胜）。
+     * 动态页面通常由 JS 采集可交互元素矩形后经 bind() 上报（见文档「区域点击穿透」）。
+     *
+     * 各平台生效方式：
+     *   - Windows：约 30ms 轮询光标位置翻转穿透位，行为近似实时（≤50ms）
+     *   - Linux  ：input shape 原生多矩形支持，即时生效；必须在 run() 之后调用
+     *   - macOS  ：约 30ms 轮询（未真机验证）
+     *
+     * 已知局限（诚实标注）：
+     *   - 矩形近似：圆角、抗锯齿边缘按外接矩形处理
+     *   - canvas / video / iframe 内容不会被自动识别，需自行上报矩形
+     *   - JS 上报间隔内的 DOM 变化存在竞态（按旧矩形判定点击）
+     *   - 浏览器缩放非 100% 时 Windows 侧坐标换算会有偏差
+     *
+     * @param array $rects 矩形数组（见上），空数组 = 退出区域模式
+     * @return self
+     * @throws \InvalidArgumentException 矩形格式非法时抛出
+     * @throws \RuntimeException 窗口不存在或平台 / 时机不支持时抛出
+     * @example $win->setClickThroughRegions([['x' => 8, 'y' => 8, 'w' => 344, 'h' => 36]]);
+     */
+    public function setClickThroughRegions(array $rects): self
+    {
+        $flat = self::normalizeRects($rects);
+        $n = intdiv(count($flat), 4);
+        if ($n === 0) {
+            $code = self::ffi()->window_set_click_through_regions(
+                self::ffi()->webview_get_window($this->pv),
+                null,
+                0
+            );
+        } else {
+            $total = $n * 4;
+            $arr = self::ffi()->new("int[{$total}]");
+            foreach ($flat as $i => $v) {
+                $arr[$i] = $v;
+            }
+            $code = self::ffi()->window_set_click_through_regions(
+                self::ffi()->webview_get_window($this->pv),
+                $arr,
+                $n
+            );
+        }
+        if ($code !== 0) {
+            throw new \RuntimeException(match ($code) {
+                1 => '窗口不存在，无法设置区域点击穿透',
+                3 => '当前平台或时机不支持区域点击穿透（Linux 需在 run() 窗口显示之后调用）',
+                4 => '区域点击穿透参数非法',
+                default => "设置区域点击穿透失败（错误码 {$code}）",
+            });
+        }
+        return $this;
+    }
+
+    /**
+     * 把矩形数组规范化为扁平 int 一维数组 [x,y,w,h,...]
+     *
+     * 接受列表形式 [x,y,w,h] 与关联形式 ['x'=>..,'y'=>..,'w'=>..,'h'=>..]，
+     * 可混用；浮点四舍五入取整；宽高为负抛 InvalidArgumentException（不做 abs，
+     * 边界情况显式报错而不是静默纠正）。
+     *
+     * @param array $rects 原始矩形数组
+     * @return list<int>   扁平数组，长度 = 4 * 矩形个数
+     * @throws \InvalidArgumentException 格式非法时抛出
+     */
+    private static function normalizeRects(array $rects): array
+    {
+        $flat = [];
+        foreach ($rects as $i => $r) {
+            if (is_array($r) && array_keys($r) === [0, 1, 2, 3]) {
+                $v = [$r[0], $r[1], $r[2], $r[3]];
+            } elseif (is_array($r) && isset($r['x'], $r['y'], $r['w'], $r['h'])) {
+                $v = [$r['x'], $r['y'], $r['w'], $r['h']];
+            } else {
+                throw new \InvalidArgumentException(
+                    "setClickThroughRegions 第 {$i} 个矩形格式非法（应为 [x,y,w,h] 或 x/y/w/h 关联数组）"
+                );
+            }
+            foreach ($v as $k => $num) {
+                if (!is_numeric($num)) {
+                    throw new \InvalidArgumentException(
+                        "setClickThroughRegions 第 {$i} 个矩形的第 {$k} 个坐标不是数字"
+                    );
+                }
+                $flat[] = (int) round((float) $num);
+            }
+            if ($v[2] < 0 || $v[3] < 0) {
+                throw new \InvalidArgumentException(
+                    "setClickThroughRegions 第 {$i} 个矩形宽高不能为负"
+                );
+            }
+        }
+        return $flat;
     }
 
     /**

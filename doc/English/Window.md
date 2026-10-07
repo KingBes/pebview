@@ -217,7 +217,7 @@ A missing window throws `RuntimeException`.
 
 ### Whole-window Click-through
 
-When enabled, the **entire window** stops receiving mouse events (clicks and hovers fall through to windows behind); disabling restores interaction. Independent of `setTransparent` — the two can be combined freely.
+When enabled, the **entire window** stops receiving mouse events (clicks and hovers fall through to windows behind); disabling restores interaction. Independent of `setTransparent` — the two can be combined freely. Mutually exclusive with region whitelist mode (`setClickThroughRegions`, next section): either call undoes the other.
 
 Support per platform:
 
@@ -241,6 +241,66 @@ $win->setClickThrough(false);
 ```
 
 A missing window, or an unsupported platform / timing, throws `RuntimeException` — never silently ignored.
+
+### Region Click-through (Whitelist Mode)
+
+Whole-window click-through makes the *entire* window ignore the mouse. This section is **real click-through**: rectangles listed in `$rects` keep receiving clicks while everything else falls through to windows behind — the standard behavior for transparent desktop widgets / HUDs (content clickable, transparent surroundings passthrough).
+
+Coordinates are **page CSS px** (matching the DOM layout). Each rect accepts either form, mixable: `[x, y, w, h]` or `['x'=>.., 'y'=>.., 'w'=>.., 'h'=>..]`; floats are rounded automatically, negative width/height throws. An **empty array** exits region mode and restores normal interaction.
+
+Support per platform:
+
+| Platform | Mechanism | Latency | Known deviation |
+| --- | --- | --- | --- |
+| Windows | ~30ms cursor polling toggling `WS_EX_TRANSPARENT` | Near real-time (≤50ms) | Offsets when browser zoom ≠ 100% |
+| Linux | Multi-rect input shape (hit routing by shape) | Instant | Requires `run()` first; Wayland fractional scaling is approximate |
+| macOS | ~30ms polling toggling `setIgnoresMouseEvents` | Near real-time | Not verified on real hardware |
+
+Public Method
+ - `setClickThroughRegions` Sets whitelist-region click-through.
+    Parameters
+  - `array` `$rects` Rect array (see above); empty array exits region mode.
+    Returns
+  - `Window` Returns the window object.
+
+For dynamic pages, collect the regions from JS: the page knows its own layout, so gather
+`getBoundingClientRect()` of elements with a visible background or interactive semantics and
+report them via `bind()` (triggered by `MutationObserver` + `resize` + `scroll`, debounced).
+See `test/demo-click-through.php` for a complete copy-paste example. The core two steps:
+
+```PHP
+// PHP side: receive reports and update the whitelist
+$win->bind('__reportRegions', function (array $flat) use ($win) {
+    $win->setClickThroughRegions(array_chunk($flat, 4));
+    return true;
+});
+```
+
+```JS
+// Page side: collect rects of visible / interactive elements and report
+const rects = [];
+document.querySelectorAll('*').forEach(el => {
+    const cs = getComputedStyle(el);
+    const hasBg = cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent';
+    const clickable = el.closest('a,button,input,select,textarea,label') || cs.cursor === 'pointer';
+    if (!hasBg && !clickable) return;
+    const r = el.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) return;
+    rects.push([r.left, r.top, r.width, r.height]);
+});
+await __reportRegions(rects.flat());
+```
+
+Known limitations (honest notes):
+- **Non-client areas (system titlebar / frame) are never passthrough**: that is system UI — dragging,
+  minimize and close always work; passthrough only applies to the part of the client area outside the
+  whitelist (Linux CSD titlebars are the exception — they do get passthrough);
+- **Rect approximation**: rounded corners and anti-aliased edges are treated as bounding boxes; edge hits may be off by 1-3px;
+- **canvas / video / iframe content is not auto-detected** — report those rects yourself;
+- **Report race**: DOM changes within the debounce window (~120ms) are hit-tested against the old rects;
+- Polling modes have a 30-50ms first-response latency (Windows / macOS).
+
+A missing window, or an unsupported platform / timing, throws `RuntimeException`; malformed rects throw `InvalidArgumentException`.
 
 ### Custom Titlebar (Truly Borderless + JS-driven Resize)
 

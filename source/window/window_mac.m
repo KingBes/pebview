@@ -226,16 +226,179 @@ int window_set_position(const void *ptr, int x, int y)
     return 0; // OK
 }
 
+// ---------------------------------------------------------------------------
+// 区域白名单点击穿透
+//
+// 机制（macOS）：setIgnoresMouseEvents 与 Windows 的 WS_EX_TRANSPARENT 一样是
+// 整窗开关，没有"按区域忽略"的原生接口，所以用 NSTimer 轮询光标位置：
+// 光标落在白名单矩形内就接收鼠标，不在就 ignoresMouseEvents。状态无变化时
+// 不动开关，避免反复触发 AppKit 命中路径。AppKit 坐标是 point 单位
+// （Retina 下也是 point），无 DPI 换算，只需把 y 从"左下原点向上"翻成
+// "左上原点向下"（与页面 CSS 一致）。
+//
+// 生命周期（非 ARC）：timer 以 target/selector 形式持有本数据对象，run loop
+// 持有 timer；数据对象再挂成 NSWindow 的关联对象。窗口 willClose 时自动停
+// 轮询并自清，避免 timer 对已释放的 window 发消息。
+//
+// ⚠️ 本机没有 macOS 环境，这段只做了语法层面的实现，未在真机验证过
+//    （与本文件 begin_move_drag 的标注一致）。
+// ---------------------------------------------------------------------------
+
+static const char kPebViewClickThroughKey;
+static void pebview_click_through_stop_mac(NSWindow *window);
+
+@interface PebViewClickThrough : NSObject
+{
+  @public
+  NSWindow *window; // 裸指针；窗口 willClose 时会自动停轮询（见 onWindowWillClose）
+  NSTimer *timer;   // 只存引用不 retain：run loop 已持有 timer
+  int *rects;       // CSS px 扁平数组 [x,y,w,h,...]，本对象持有
+  int rect_count;
+  int ignoring;     // 当前 setIgnoresMouseEvents 是否已置 YES
+}
+- (void)tick:(NSTimer *)t;
+- (void)onWindowWillClose:(NSNotification *)note;
+@end
+
+@implementation PebViewClickThrough
+
+- (void)tick:(NSTimer *)t
+{
+    (void)t;
+    if (!window || rect_count <= 0) {
+        return;
+    }
+    NSPoint loc = [NSEvent mouseLocation]; // 屏幕坐标，y 轴向上
+    NSRect f = [window frame];
+    // 窗口本地坐标（左下原点）
+    NSPoint local = NSMakePoint(loc.x - f.origin.x, loc.y - f.origin.y);
+
+    // 非客户区（系统标题栏、边框）永远是系统 UI —— 拖动、最小化、关闭都靠它，
+    // 绝不能穿透。只有 contentView 覆盖的区域（= 页面 CSS 坐标系）才参与
+    // 白名单判定；光标在内容区之外时保持可点。
+    NSRect content = [[window contentView] frame];
+    BOOL want_ignore = NO;
+    if (NSPointInRect(local, content)) {
+        // 折算成"内容区左上原点、y 向下"的 CSS 坐标（无 DPI 换算，point 即 CSS px）
+        CGFloat cssX = local.x - content.origin.x;
+        CGFloat cssY = content.size.height - (local.y - content.origin.y);
+        BOOL hit = NO;
+        for (int i = 0; i < rect_count; i++) {
+            const int *r = &rects[i * 4];
+            if (cssX >= r[0] && cssX < r[0] + r[2] && cssY >= r[1] && cssY < r[1] + r[3]) {
+                hit = YES;
+                break;
+            }
+        }
+        // 命中白名单 -> 接收鼠标；没命中 -> 忽略（穿透到下层）
+        want_ignore = hit ? NO : YES;
+    }
+    if ((int)want_ignore != ignoring) {
+        [window setIgnoresMouseEvents:want_ignore]; // 状态变化才动
+        ignoring = (int)want_ignore;
+    }
+}
+
+- (void)onWindowWillClose:(NSNotification *)note
+{
+    (void)note;
+    // 经典 MRC 自保：stop 会释放本对象（关联与 timer 的持有都断了），
+    // 先 retain 住调用栈，返回前再放掉。
+    [self retain];
+    pebview_click_through_stop_mac(window);
+    [self release];
+}
+
+@end
+
+// 撤掉区域模式的全部状态（供互切复用）。不动 ignoresMouseEvents ——
+// 最终开关状态由调用方决定。
+static void pebview_click_through_stop_mac(NSWindow *window)
+{
+    if (!window) {
+        return;
+    }
+    PebViewClickThrough *data =
+        (PebViewClickThrough *)objc_getAssociatedObject(window, &kPebViewClickThroughKey);
+    if (!data) {
+        return;
+    }
+    [[NSNotificationCenter defaultCenter] removeObserver:data];
+    if (data->timer) {
+        [data->timer invalidate];
+        data->timer = nil;
+    }
+    free(data->rects);
+    data->rects = NULL;
+    data->rect_count = 0;
+    objc_setAssociatedObject(window, &kPebViewClickThroughKey, nil, OBJC_ASSOCIATION_RETAIN);
+}
+
+int window_set_click_through_regions(const void *ptr, const int *rects, int count)
+{
+    if (!ptr) {
+        return 1; // WINDOW_NOT_FOUND
+    }
+    if (count < 0 || (count > 0 && !rects)) {
+        return 4; // INVALID_ARGUMENT
+    }
+    NSWindow *win = (NSWindow *)ptr;
+
+    // 覆盖式重建：先撤旧状态再挂新的
+    pebview_click_through_stop_mac(win);
+
+    if (count == 0) {
+        [win setIgnoresMouseEvents:NO]; // 退出区域模式、恢复正常交互
+        return 0; // OK
+    }
+
+    PebViewClickThrough *data = [[PebViewClickThrough alloc] init];
+    data->window = win;
+    data->rects = (int *)malloc(sizeof(int) * 4 * (size_t)count);
+    if (!data->rects) {
+        [data release];
+        return 3; // 内存不足按"不支持"处理，不静默
+    }
+    for (int i = 0; i < count * 4; i++) {
+        data->rects[i] = rects[i];
+    }
+    data->rect_count = count;
+    data->ignoring = 0;
+
+    objc_setAssociatedObject(win, &kPebViewClickThroughKey, data, OBJC_ASSOCIATION_RETAIN);
+
+    // 初始假定光标在白名单外 -> 先忽略鼠标；30ms 内第一拍按实际位置纠正
+    [win setIgnoresMouseEvents:YES];
+    data->ignoring = 1;
+
+    data->timer = [NSTimer timerWithTimeInterval:0.03
+                                          target:data
+                                        selector:@selector(tick:)
+                                        userInfo:nil
+                                         repeats:YES];
+    [[NSRunLoop mainRunLoop] addTimer:data->timer forMode:NSRunLoopCommonModes];
+
+    // 窗口关闭时自动停轮询（否则 timer 会一直持有 data、并对已释放的 window 发消息）
+    [[NSNotificationCenter defaultCenter] addObserver:data
+                                             selector:@selector(onWindowWillClose:)
+                                                 name:NSWindowWillCloseNotification
+                                               object:win];
+
+    [data release]; // 关联对象与 timer 已各持一份
+    return 0; // OK
+}
+
 // 整窗点击穿透：NSWindow 的 ignoresMouseEvents 让所有指针事件落到下层。
+// 与区域白名单模式互斥覆盖：进入前先撤掉区域模式的轮询状态（最后调用者获胜）。
 // ⚠️ 本机没有 macOS 环境，这段只做了语法层面的实现，未在真机验证过
 //    （与本文件 begin_move_drag 的标注一致）。
 int window_set_click_through(const void *ptr, int enable)
 {
-    if (!ptr)
-    {
+    if (!ptr) {
         return 1; // WINDOW_NOT_FOUND
     }
     NSWindow *window = (NSWindow *)ptr;
+    pebview_click_through_stop_mac(window); // 互切：若在区域模式，先撤
     [window setIgnoresMouseEvents:(enable ? YES : NO)];
     return 0; // OK
 }

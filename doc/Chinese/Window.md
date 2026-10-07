@@ -213,7 +213,7 @@ $win->setPosition(100, 100); // 窗口左上角移到 (100, 100)
 
 ### 整窗点击穿透
 
-开启后**整个窗口**不再接收鼠标事件（点击、悬停都落到下层窗口），关闭后恢复交互。与 `setTransparent` 相互独立，两者可任意组合。
+开启后**整个窗口**不再接收鼠标事件（点击、悬停都落到下层窗口），关闭后恢复交互。与 `setTransparent` 相互独立，两者可任意组合。与区域白名单模式（`setClickThroughRegions`，见下一节）互斥覆盖：任一方的调用都会撤销另一方。
 
 各平台：
 
@@ -237,6 +237,67 @@ $win->setClickThrough(false);
 ```
 
 窗口不存在或平台 / 时机不支持时抛 `RuntimeException`，不会静默无效。
+
+### 区域点击穿透（白名单模式）
+
+整窗穿透是"整扇窗都不收鼠标"；这一节是**真实的点击穿透**：`$rects` 内的矩形区域正常收点击、
+其余区域穿透到下层窗口 —— 透明桌面挂件 / 悬浮 HUD 的标准行为（内容可点、周围透明区穿透）。
+
+坐标是**页面 CSS px**（与 DOM 布局一致）。每个矩形支持两种写法、可混用：
+`[x, y, w, h]` 或 `['x'=>.., 'y'=>.., 'w'=>.., 'h'=>..]`；浮点自动取整，宽高为负抛异常。
+传**空数组**退出区域模式、恢复正常交互。
+
+各平台：
+
+| 平台 | 机制 | 生效方式 | 已知偏差 |
+| --- | --- | --- | --- |
+| Windows | 约 30ms 轮询光标位置，翻转 `WS_EX_TRANSPARENT` | 近似实时（≤50ms） | 浏览器缩放非 100% 时坐标有偏差 |
+| Linux | input shape 多矩形（事件路由层按形状命中） | 即时 | 须 `run()` 之后；Wayland 分数缩放近似 |
+| macOS | 约 30ms 轮询，翻转 `setIgnoresMouseEvents` | 近似实时 | 未真机验证 |
+
+公共函数
+ - `setClickThroughRegions` 设置区域白名单穿透
+    参数
+  - `array` `$rects` 矩形数组（见上），空数组 = 退出区域模式
+    返回
+  - `Window` 返回窗口对象
+
+动态页面建议由 JS 自动采集：页面知道自己的布局，把「有可见背景 / 可交互」元素的
+`getBoundingClientRect()` 收集起来经 `bind()` 上报即可（`MutationObserver` + `resize` +
+`scroll` 触发、防抖重算）。完整可复制示例见 `test/demo-click-through.php`，核心两步：
+
+```PHP
+// PHP 侧：接收上报并更新白名单
+$win->bind('__reportRegions', function (array $flat) use ($win) {
+    $win->setClickThroughRegions(array_chunk($flat, 4));
+    return true;
+});
+```
+
+```JS
+// 页面侧：收集有背景 / 可交互元素的矩形并上报
+const rects = [];
+document.querySelectorAll('*').forEach(el => {
+    const cs = getComputedStyle(el);
+    const hasBg = cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent';
+    const clickable = el.closest('a,button,input,select,textarea,label') || cs.cursor === 'pointer';
+    if (!hasBg && !clickable) return;
+    const r = el.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) return;
+    rects.push([r.left, r.top, r.width, r.height]);
+});
+await __reportRegions(rects.flat());
+```
+
+已知局限（诚实标注）：
+- **非客户区（系统标题栏、边框）永远不穿透**：那是系统 UI——拖动、最小化、关闭始终可用；
+  穿透只作用于客户区内、白名单之外的部分（Linux CSD 自绘标题栏除外，会被穿透）；
+- **矩形近似**：圆角、抗锯齿边缘按外接矩形处理，边缘 1-3px 命中可能与视觉不符；
+- **canvas / video / iframe 内容不会自动识别**，需自行上报矩形；
+- **上报竞态**：JS 防抖间隔（约 120ms）内的 DOM 变化按旧矩形判定；
+- 轮询模式下首次生效有 30-50ms 延迟（Windows / macOS）。
+
+窗口不存在或平台 / 时机不支持时抛 `RuntimeException`；矩形格式非法抛 `InvalidArgumentException`。
 
 ### 自定义标题栏（真正无边框 + JS 驱动缩放）
 

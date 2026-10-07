@@ -93,6 +93,20 @@ extern "C"
     int window_set_click_through(const void *ptr, int enable);
 
     /**
+     * @brief 区域白名单点击穿透：rects 内正常接收鼠标，rects 外穿透
+     *
+     * rects 为扁平 int 数组 [x0,y0,w0,h0, ...]（count 个矩形，长度 = count*4），
+     * 坐标是页面 CSS px，各平台内部自行换算 DPI / 缩放。count<=0 退出区域模式、
+     * 恢复正常交互（rects 可为 NULL）。与 window_set_click_through 互斥覆盖。
+     *
+     * @param ptr   窗口句柄
+     * @param rects 扁平矩形数组，可为 NULL（当 count<=0）
+     * @param count 矩形个数
+     * @return int  0 = OK，1 = 窗口不存在，3 = 平台或时机不支持（Linux 需 realize），4 = 参数非法
+     */
+    int window_set_click_through_regions(const void *ptr, const int *rects, int count);
+
+    /**
      * @brief 设置窗口标题栏外观（浅色 / 深色与配色）
      *
      * @param ptr     窗口句柄

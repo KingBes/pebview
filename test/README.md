@@ -69,6 +69,7 @@ php -d extension=ffi -d ffi.enable=1 test/demo-run-loop.php
 | `auto-win-07-error-paths.php` | 错误路径集中档（什么情况抛什么异常） |
 | `auto-win-08-multi-window.php` | 多窗口连续性 |
 | `auto-win-09-custom-titlebar.php` | 自定义标题栏：非客户区归零 / 还原、最大化状态三边一致、状态回调、beginDrag 契约 |
+| `auto-win-10-click-through-regions.php` | 区域白名单点击穿透：两种矩形格式 / 浮点、非法输入抛 InvalidArgumentException、与整窗穿透互切链、FFI 原生返回码（0/4） |
 
 ### 为什么分两组、为什么每个文件独立子进程
 
@@ -94,6 +95,7 @@ php -d extension=ffi -d ffi.enable=1 test/demo-run-loop.php
 | `demo-titlebar.php` | 5 种标题栏**颜色**配置，每 3 秒切一次 | 标题栏颜色是否真的变（Windows 上最完整） | 约 15 秒后自动结束 |
 | `demo-transparent.php` | `setTransparent` 真透明验收：底层参照法（hide 抓 base → show 抓 on，含绿/红子元素 alpha 实验）+ 状态行（layered/NOREDIRECT/Z）+ 截图落盘 | `A_on == base` 是否逐位一致（透出成功）、截图是否"页面内容可见 + 背景透出" | 采样完成自动结束（约 8 秒） |
 | `demo-custom-titlebar.php` | **自绘标题栏**：HTML 画一条 36px 的栏 + 三个按钮，接到 minimize/toggleMaximize/close | 系统标题栏是否消失、能否拖动/双击最大化/贴边、按钮是否可点、最大化时状态是否同步 | 点右上角关闭按钮 |
+| `demo-click-through.php` | **区域点击穿透**：透明悬浮挂件，整窗穿透 / alpha 穿透（JS 采集可交互元素矩形经 bind 上报）两种模式 | alpha 模式下点卡片/按钮有响应、点透明区事件落到下层窗口（拿记事本垫底验证） | 点 HUD 上的关闭按钮 |
 | `demo-run-loop.php` | `run()` + `setCloseCallback`（第一次拒绝关闭）+ `dispatch` | 关闭被拒绝、dispatch 是否执行 | 连点两次 X，或托盘退出 |
 | `demo-bind.php` | JS 真的 await 各种返回值 | 哪些 resolve、哪些 reject、有没有一直 pending 的 | 直接关窗 |
 
