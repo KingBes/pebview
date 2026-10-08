@@ -801,6 +801,12 @@ class Window extends Base
     /**
      * 创建托盘
      *
+     * Linux 注意：GNOME 3.26+ 移除了 legacy 系统托盘，且没有
+     * StatusNotifier 宿主（AppIndicator/KStatusNotifier 扩展提供）时，
+     * 托盘无法嵌入——此时本方法优雅降级返回 self（$this->tray 为 null，
+     * 托盘菜单不会注册），不会像直接创建那样在 ~10 秒后爆 GTK 断言。
+     * 需要托盘的最终用户安装 AppIndicator 扩展即可。
+     *
      * @param string $icon 托盘图标
      * @return self
      * @example $win->tray(托盘图标); - windows 要求ico格式 - Linux 要求png格式 - MacOs ico

@@ -88,10 +88,66 @@ static gboolean on_status_icon_popup_menu(GtkStatusIcon *status_icon,
 }
 
 // 创建窗口托盘
+// GNOME 会话托盘可用性探测（2026-10-08）：GNOME 3.26+ 移除了 legacy XEmbed
+// 系统托盘，GtkStatusIcon 在没有托盘宿主的 GNOME 上无法嵌入，内部 widget 的
+// 生命周期还会在嵌入超时（~10 秒）后爆 GTK 断言
+// （gtk_widget_get_scale_factor: assertion 'GTK_IS_WIDGET (widget)' failed，
+// pebman-pet 在 Ubuntu 虚拟机实测：worker 活不过 ~15 秒）。
+// 判定：XDG_CURRENT_DESKTOP 含 GNOME 且会话总线上没有 StatusNotifier 宿主
+// （org.kde.StatusNotifierWatcher，由 AppIndicator/KStatusNotifier 扩展提供）
+// → 托盘不可用。KDE / MATE / XFCE 等 legacy 托盘环境不受影响。
+static gboolean pebview_gnome_tray_available(void)
+{
+    const char *desktop = g_getenv("XDG_CURRENT_DESKTOP");
+    if (!desktop || !strstr(desktop, "GNOME"))
+    {
+        return TRUE; // 非 GNOME 会话：按存在 legacy 托盘处理（KDE/MATE/XFCE 等）
+    }
+
+    GDBusConnection *bus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, NULL);
+    if (!bus)
+    {
+        return FALSE;
+    }
+
+    gboolean available = FALSE;
+    GVariant *result = g_dbus_connection_call_sync(
+        bus, "org.freedesktop.DBus", "/org/freedesktop/DBus",
+        "org.freedesktop.DBus", "ListNames", NULL,
+        G_VARIANT_TYPE("(as)"), G_DBUS_CALL_FLAGS_NONE, 500, NULL, NULL);
+    if (result)
+    {
+        GVariant *names = g_variant_get_child_value(result, 0);
+        GVariantIter iter;
+        const gchar *name;
+        g_variant_iter_init(&iter, names);
+        while (g_variant_iter_loop(&iter, "&s", &name))
+        {
+            if (g_strcmp0(name, "org.kde.StatusNotifierWatcher") == 0)
+            {
+                available = TRUE;
+                break;
+            }
+        }
+        g_variant_unref(names);
+        g_variant_unref(result);
+    }
+    g_object_unref(bus);
+    return available;
+}
+
 void *window_tray(const void *ptr, const char *icon)
 {
     if (!ptr || !icon)
         return NULL;
+
+    // GNOME 且无托盘宿主：不创建注定无法嵌入的 GtkStatusIcon（否则 ~10 秒后
+    // 内部 widget 超时清理时爆断言并可能 abort）。PHP 侧 tray() 拿到 NULL，
+    // 窗口主功能不受影响；需要托盘的最终用户装 AppIndicator 扩展即可。
+    if (!pebview_gnome_tray_available())
+    {
+        return NULL;
+    }
 
     TrayData *tray_data = malloc(sizeof(TrayData));
     if (!tray_data)
