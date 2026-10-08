@@ -1,6 +1,7 @@
 #include "window.h"
 
 #include <gtk/gtk.h>
+#include <gdk/gdkx.h>
 #include <stdlib.h>
 
 // 窗口显示
@@ -88,52 +89,32 @@ static gboolean on_status_icon_popup_menu(GtkStatusIcon *status_icon,
 }
 
 // 创建窗口托盘
-// GNOME 会话托盘可用性探测（2026-10-08）：GNOME 3.26+ 移除了 legacy XEmbed
-// 系统托盘，GtkStatusIcon 在没有托盘宿主的 GNOME 上无法嵌入，内部 widget 的
-// 生命周期还会在嵌入超时（~10 秒）后爆 GTK 断言
-// （gtk_widget_get_scale_factor: assertion 'GTK_IS_WIDGET (widget)' failed，
-// pebman-pet 在 Ubuntu 虚拟机实测：worker 活不过 ~15 秒）。
-// 判定：XDG_CURRENT_DESKTOP 含 GNOME 且会话总线上没有 StatusNotifier 宿主
-// （org.kde.StatusNotifierWatcher，由 AppIndicator/KStatusNotifier 扩展提供）
-// → 托盘不可用。KDE / MATE / XFCE 等 legacy 托盘环境不受影响。
-static gboolean pebview_gnome_tray_available(void)
+// Linux 托盘可用性探测（2026-10-08，替换 GNOME+watcher 启发式）：
+// GtkStatusIcon 走 legacy XEmbed 协议（FreeDesktop System Tray Spec，X11-only）：
+//   * Wayland 会话：协议本身不存在，永远无法嵌入；
+//   * X11：托盘管理器持有 _NET_SYSTEM_TRAY_S<屏号> 选区（GNOME 3.26+ / sway 无；
+//     KDE / MATE / XFCE / 装了托盘扩展的环境有）。
+// 用选区主人是否存在做真值判定——没有宿主就不创建 GtkStatusIcon，否则其内部
+// widget 生命周期会在嵌入超时（~10 秒）后爆 GTK 断言
+// （gtk_widget_get_scale_factor: assertion 'GTK_IS_WIDGET (widget)' failed）
+// 并可能导致进程 abort（pebman-pet 在 Ubuntu 实测：worker 活不过 ~15 秒）。
+// 之前的"GNOME + StatusNotifierWatcher"启发式不够：AppIndicator 扩展只提供
+// SNI 协议，不托管 XEmbed，GtkStatusIcon 在那种 GNOME 上依旧注定失败。
+static gboolean pebview_legacy_tray_available(void)
 {
-    const char *desktop = g_getenv("XDG_CURRENT_DESKTOP");
-    if (!desktop || !strstr(desktop, "GNOME"))
+#if defined(GDK_WINDOWING_X11)
+    GdkScreen *screen = gdk_screen_get_default();
+    if (!screen || !GDK_IS_X11_SCREEN(screen))
     {
-        return TRUE; // 非 GNOME 会话：按存在 legacy 托盘处理（KDE/MATE/XFCE 等）
+        return FALSE; // Wayland 等非 X11 后端：无 legacy 托盘
     }
-
-    GDBusConnection *bus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, NULL);
-    if (!bus)
-    {
-        return FALSE;
-    }
-
-    gboolean available = FALSE;
-    GVariant *result = g_dbus_connection_call_sync(
-        bus, "org.freedesktop.DBus", "/org/freedesktop/DBus",
-        "org.freedesktop.DBus", "ListNames", NULL,
-        G_VARIANT_TYPE("(as)"), G_DBUS_CALL_FLAGS_NONE, 500, NULL, NULL);
-    if (result)
-    {
-        GVariant *names = g_variant_get_child_value(result, 0);
-        GVariantIter iter;
-        const gchar *name;
-        g_variant_iter_init(&iter, names);
-        while (g_variant_iter_loop(&iter, "&s", &name))
-        {
-            if (g_strcmp0(name, "org.kde.StatusNotifierWatcher") == 0)
-            {
-                available = TRUE;
-                break;
-            }
-        }
-        g_variant_unref(names);
-        g_variant_unref(result);
-    }
-    g_object_unref(bus);
-    return available;
+    char name[64];
+    g_snprintf(name, sizeof(name), "_NET_SYSTEM_TRAY_S%d",
+               gdk_x11_screen_get_screen_number(screen));
+    return gdk_selection_owner_get(gdk_atom_intern(name, FALSE)) != NULL;
+#else
+    return TRUE;
+#endif
 }
 
 void *window_tray(const void *ptr, const char *icon)
@@ -141,10 +122,10 @@ void *window_tray(const void *ptr, const char *icon)
     if (!ptr || !icon)
         return NULL;
 
-    // GNOME 且无托盘宿主：不创建注定无法嵌入的 GtkStatusIcon（否则 ~10 秒后
-    // 内部 widget 超时清理时爆断言并可能 abort）。PHP 侧 tray() 拿到 NULL，
-    // 窗口主功能不受影响；需要托盘的最终用户装 AppIndicator 扩展即可。
-    if (!pebview_gnome_tray_available())
+    // 无可用托盘（Wayland / X11 无托盘管理器）：不创建注定无法嵌入的
+    // GtkStatusIcon（否则 ~10 秒后内部 widget 超时清理时爆断言并可能 abort）。
+    // PHP 侧 tray() 拿到 NULL，窗口主功能不受影响。
+    if (!pebview_legacy_tray_available())
     {
         return NULL;
     }

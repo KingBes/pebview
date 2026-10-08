@@ -801,11 +801,10 @@ class Window extends Base
     /**
      * 创建托盘
      *
-     * Linux 注意：GNOME 3.26+ 移除了 legacy 系统托盘，且没有
-     * StatusNotifier 宿主（AppIndicator/KStatusNotifier 扩展提供）时，
-     * 托盘无法嵌入——此时本方法优雅降级返回 self（$this->tray 为 null，
-     * 托盘菜单不会注册），不会像直接创建那样在 ~10 秒后爆 GTK 断言。
-     * 需要托盘的最终用户安装 AppIndicator 扩展即可。
+     * Linux 注意：GtkStatusIcon 走 legacy XEmbed 协议（X11-only）。Wayland 会话
+     * 或没有托盘管理器的桌面（如 GNOME 3.26+ 默认无）上托盘无法嵌入——此时本方法
+     * 优雅降级返回 self（$this->tray 为 null，托盘菜单不会注册），不会像直接创建
+     * 那样在 ~10 秒后爆 GTK 断言。KDE/MATE/XFCE 等带托盘管理器的环境正常显示。
      *
      * @param string $icon 托盘图标
      * @return self
