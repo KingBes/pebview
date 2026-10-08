@@ -1841,6 +1841,16 @@ public:
                       G_CALLBACK(on_window_destroy), this);
     }
     webkit_dmabuf::apply_webkit_dmabuf_workaround();
+    // Workerman / webman 等 PHP 常驻框架用 SIGUSR1(10) 做 reload 信号，而 WebKit 的
+    // JSC 默认抢占 signal 10 做 GC（启动时打印 "Overriding existing handler for
+    // signal 10"）—— 嵌在 Workerman 里的 PebView 收到 reload 时触发的是 JSC 的
+    // GC safepoint 而非框架的 reload 处理，堆破坏后随机爆 GTK CRITICAL +
+    // SIGABRT（pebman-pet 在 Ubuntu 实测：worker 每次活不过 ~15 秒）。
+    // 把 JSC 的 GC 信号改到 SIGRTMIN(34)，与常驻框架的常规信号错开；
+    // 调用方自己设过 JSC_SIGNAL_FOR_GC 时不覆盖。
+    if (webkit_dmabuf::get_env("JSC_SIGNAL_FOR_GC").empty()) {
+      webkit_dmabuf::set_env("JSC_SIGNAL_FOR_GC", "34");
+    }
     // Initialize webview widget
     m_webview = webkit_web_view_new();
     g_object_ref_sink(m_webview);
