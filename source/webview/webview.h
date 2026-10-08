@@ -1928,10 +1928,12 @@ public:
       webkit_settings_set_enable_developer_extras(settings, true);
     }
 
-    if (m_owns_window) {
-      gtk_widget_grab_focus(GTK_WIDGET(m_webview));
-      gtk_compat::widget_set_visible(GTK_WIDGET(m_window), true);
-    }
+    // 注意：这里【不】显示窗口。GTK3 的 toplevel gtk_widget_show() 会同步
+    // realize，而窗口层透明（window_set_transparent）的 rgba visual 只能在
+    // realize 之前挂上 —— 构造时就 show 的话，PHP 侧随后调用的 setTransparent
+    // 永远返回"不支持"（2026-10-08 pebman-pet 实测钉死）。窗口改由 run_impl()
+    // 在进入主循环前显示，PebView"run() 之前调用透明"的契约由此才真正成立。
+    // Windows 引擎没有 realize 时序限制，仍在构造函数里 ShowWindow。
   }
 
   gtk_webkit_engine(const gtk_webkit_engine &) = delete;
@@ -1983,6 +1985,12 @@ protected:
   }
 
   noresult run_impl() override {
+    if (m_owns_window) {
+      // 进入主循环前才显示窗口（realize 发生在此刻）—— 构造函数里预挂的 rgba
+      // visual（window_set_transparent，须在 realize 之前）此刻生效。
+      gtk_compat::widget_set_visible(GTK_WIDGET(m_window), true);
+      gtk_widget_grab_focus(GTK_WIDGET(m_webview));
+    }
     m_stop_run_loop = false;
     while (!m_stop_run_loop) {
       g_main_context_iteration(nullptr, TRUE);
