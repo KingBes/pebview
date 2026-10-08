@@ -20,6 +20,25 @@ class Window extends Base
 
     public function __construct(bool $debug = true)
     {
+        // Linux + PHP Fiber 协程栈 = WebKitGTK 必崩（2026-10-08 pebman-pet 实测定位）：
+        // Workerman 5.2 / webman v2 会把 worker 回调包进 PHP Fiber（Worker.php:
+        // `default => (new \Fiber($callback))->start()`，PHP >= 8.1 无开关），
+        // 于是窗口主循环整个跑在 fiber 的 mmap 栈上。页面首次调用 bind 桥时
+        // WebKitGTK 在 UI 进程惰性创建 JSC 上下文（JSGlobalContextCreateInGroup），
+        // JSC::sanitizeStackForVM 发现当前栈指针不在为该线程缓存的栈边界内 →
+        // WTFCrashWithInfo → 无声 SIGABRT（exit 134），master 重启 worker 无限循环。
+        // 与其让用户面对神秘崩溃循环，不如显式报错并给出路。
+        if (PHP_OS_FAMILY === 'Linux'
+            && class_exists(\Fiber::class)
+            && \Fiber::getCurrent() !== null
+        ) {
+            throw new \RuntimeException(
+                'PebView 不能在 PHP Fiber 协程栈中创建窗口（Linux）：'
+                . 'WebKitGTK 会在 fiber 栈上创建 JSC 上下文并无声 abort（exit 134）。'
+                . '出路：①把窗口放到独立 PHP 子进程运行（proc_open，与 worker 用文件/HTTP 通信）——推荐；'
+                . '②改用无协程宿主（Workerman 4.x / webman v1 / 普通 CLI）。'
+            );
+        }
         $this->pv = self::ffi()->webview_create($debug, null);
     }
 
