@@ -1625,76 +1625,17 @@ static inline void set_env(const std::string &name, const std::string &value) {
   ::setenv(name.c_str(), value.c_str(), 1);
 }
 
-// Checks whether the NVIDIA GPU driver is used based on whether the kernel
-// module is loaded.
-static inline bool is_using_nvidia_driver() {
-  struct ::stat buffer {};
-  if (::stat("/sys/module/nvidia", &buffer) != 0) {
-    return false;
-  }
-  return S_ISDIR(buffer.st_mode);
-}
-
-// Checks whether the windowing system is Wayland.
-static inline bool is_wayland_display() {
-  if (!get_env("WAYLAND_DISPLAY").empty()) {
-    return true;
-  }
-  if (get_env("XDG_SESSION_TYPE") == "wayland") {
-    return true;
-  }
-  if (get_env("DESKTOP_SESSION").find("wayland") != std::string::npos) {
-    return true;
-  }
-  return false;
-}
-
-// Checks whether the GDK X11 backend is used.
-// See: https://docs.gtk.org/gdk3/class.DisplayManager.html
-static inline bool is_gdk_x11_backend() {
-#ifdef GDK_WINDOWING_X11
-  auto *gdk_display = gdk_display_get_default();
-  return GDK_IS_X11_DISPLAY(gdk_display); // NOLINT(misc-const-correctness)
-#else
-  return false;
-#endif
-}
-
-// Checks whether WebKit is affected by bug when using DMA-BUF renderer.
-// Returns true if all of the following conditions are met:
-//  - WebKit version is >= 2.42 (please narrow this down when there's a fix).
-//  - Environment variables are empty or not set:
-//    - WEBKIT_DISABLE_DMABUF_RENDERER
-//  - Windowing system is not Wayland.
-//  - GDK backend is X11.
-//  - NVIDIA GPU driver is used.
-static inline bool is_webkit_dmabuf_bugged() {
-  auto wk_major = webkit_get_major_version();
-  auto wk_minor = webkit_get_minor_version();
-  // TODO: Narrow down affected WebKit version when there's a fixed version
-  auto is_affected_wk_version = wk_major == 2 && wk_minor >= 42;
-  if (!is_affected_wk_version) {
-    return false;
-  }
-  if (!get_env("WEBKIT_DISABLE_DMABUF_RENDERER").empty()) {
-    return false;
-  }
-  if (is_wayland_display()) {
-    return false;
-  }
-  if (!is_gdk_x11_backend()) {
-    return false;
-  }
-  if (!is_using_nvidia_driver()) {
-    return false;
-  }
-  return true;
-}
-
-// Applies workaround for WebKit DMA-BUF bug if needed.
+// Applies workaround for the WebKitGTK DMABUF renderer crash family.
 // See WebKit bug: https://bugs.webkit.org/show_bug.cgi?id=261874
+//
+// 2026-10-08 改为无条件禁用（pebman-pet 在 Ubuntu 实测钉死）：DMABUF 渲染器在
+// NVIDIA / AMD / Intel + X11 / Wayland 的多种组合上都会触发 GDK 断言
+// （gtk_widget_get_scale_factor: assertion 'GTK_IS_WIDGET (widget)' failed）
+// 并 SIGABRT，原来"NVIDIA + X11 才禁用"的条件覆盖不住。PebView 面向挂件 /
+// HUD 类轻量页面，稳定性优先于硬件加速；确需 DMABUF 渲染的调用方可在启动前
+// 设 PEBVIEW_WEBKIT_DMABUF=1 选择性开启。
 static inline void apply_webkit_dmabuf_workaround() {
-  if (!is_webkit_dmabuf_bugged()) {
+  if (get_env("PEBVIEW_WEBKIT_DMABUF") == "1") {
     return;
   }
   set_env("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
