@@ -81,7 +81,10 @@ echo "[INFO] 编译 toast.c..."
 gcc $cflags -c "$current_dir/toast/linux/toast.c" -o "$toast_o" -I"$toast_i" $notify_cflags
 
 echo "[INFO] 链接单个共享库..."
-g++ -shared -o "$out_so" \
+# -Wl,--no-undefined：链接期就报出所有无法解析的符号。共享库默认允许未定义
+# 符号（运行时 dlopen 才炸），曾让幻觉符号 gtk_window_set_app_paintable
+# 一路绿灯到用户机器上 worker 直接崩溃（2026-10-08 实测）
+g++ -shared -Wl,--no-undefined -o "$out_so" \
     "$webview_o" "$icon_o" "$dialog_common_o" "$dialog_gtk_o" "$window_o" "$toast_o" \
     $gtk_libs $notify_libs -ldl -lstdc++
 

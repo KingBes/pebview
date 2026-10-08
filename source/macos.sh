@@ -54,7 +54,10 @@ build_arch() {
     clang++ $objcflags -I"$current_dir/toast"   -c "$current_dir/toast/macos/toast.mm" -o "$obj_dir/toast.o"
 
     log_info "链接单个动态库"
+    # -Wl,-undefined,error：链接期报出无法解析的符号（dylib 默认放行，
+    # 运行时才炸）—— 与 linux.sh 的 -Wl,--no-undefined 同一防幻觉符号目的
     clang++ -arch "$arch" -dynamiclib \
+        -Wl,-undefined,error \
         -install_name "@rpath/PebView.dylib" \
         -o "$out_dylib" \
         "$obj_dir/webview.o" \

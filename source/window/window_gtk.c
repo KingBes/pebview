@@ -213,7 +213,10 @@ int window_set_transparent(const void *ptr, int enable)
 
     if (!enable)
     {
-        gtk_window_set_app_paintable(GTK_WINDOW(widget), FALSE);
+        // 注意是 gtk_widget_set_app_paintable（GtkWidget 级 API）——不存在
+        // gtk_window_set_app_paintable 这种符号，写错会在运行时才爆
+        // "symbol lookup error"（共享库链接期不查未定义符号，CI 也没拦住）
+        gtk_widget_set_app_paintable(widget, FALSE);
         return 0; // OK
     }
 
@@ -235,7 +238,7 @@ int window_set_transparent(const void *ptr, int enable)
     }
 
     gtk_widget_set_visual(widget, visual);
-    gtk_window_set_app_paintable(GTK_WINDOW(widget), TRUE);
+    gtk_widget_set_app_paintable(widget, TRUE);
     return 0; // OK
 }
 
